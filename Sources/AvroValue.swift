@@ -8,478 +8,475 @@
 
 import Foundation
 
-
-extension Dictionary {
-
-}
-
-public func +=<K, V>(left: inout Dictionary<K, V>, right: Dictionary<K, V>)
-{
-    for (k, v) in right {
-        left.updateValue(v, forKey: k)
-    }
-}
-
 public enum AvroValue {
+    public enum SchemaError: Error {
+        case invalid
+        case conversionFailed
+        case mismatch
+        case enumSymbolNotFound(String, symbols: [String])
+        case fieldNotFound(String)
+    }
+
     // Primitives
-    case avroNullValue
-    case avroBooleanValue(Bool)
-    case avroIntValue(Int32)
-    case avroLongValue(Int64)
-    case avroFloatValue(Float)
-    case avroDoubleValue(Double)
-    case avroBytesValue([UInt8])
-    case avroStringValue(String)
+    case avroNull
+    case avroBoolean(Bool)
+    case avroInt(Int32)
+    case avroLong(Int64)
+    case avroFloat(Float)
+    case avroDouble(Double)
+    case avroBytes(Data)
+    case avroString(String)
 
     // Complex Types
-    case avroArrayValue([AvroValue])
-    case avroMapValue(Dictionary<String, AvroValue>)
-    case avroUnionValue(Int, Box<AvroValue>)
-    case avroRecordValue(Dictionary<String, AvroValue>)
-    case avroEnumValue(Int, String)
-    case avroFixedValue([UInt8])
-
-    case avroInvalidValue
-
-    public var boolean: Bool? {
+    indirect case avroArray(itemSchema: Schema, [AvroValueConvertible])
+    indirect case avroMap(valueSchema: Schema, [String: AvroValueConvertible])
+    indirect case avroUnion(schemaOptions: [Schema], index: Int, AvroValueConvertible)
+    indirect case avroRecord(Schema, [String: AvroValueConvertible])
+    case avroEnum(Schema, index: Int, String)
+    case avroFixed(Schema, Data)
+    
+    public var schema: Schema {
         switch self {
-        case .avroBooleanValue(let value) :
-            return value
-        case .avroUnionValue(_, let box) :
-            return box.value.boolean
-        default :
+        case .avroNull:
+            return .avroNull
+        case .avroBoolean(_):
+            return .avroBoolean
+        case .avroInt(_):
+            return .avroInt
+        case .avroLong(_):
+            return .avroLong
+        case .avroFloat(_):
+            return .avroFloat
+        case .avroDouble(_):
+            return .avroDouble
+        case .avroBytes(_):
+            return .avroBytes
+        case .avroString(_):
+            return .avroString
+        // Complex Types
+        case .avroArray(let itemSchema, _):
+            return .avroArray(itemSchema)
+        case .avroMap(let valueSchema, _):
+            return .avroMap(valueSchema)
+        case .avroUnion(let schemaOptions, _, _):
+            return .avroUnion(schemaOptions)
+        case .avroRecord(let innerSchema, _):
+            return innerSchema
+        case .avroEnum(let innerSchema, _, _):
+            return innerSchema
+        case .avroFixed(let innerSchema, _):
+            return innerSchema
+        }
+    }
+
+    public var int: Int32? {
+        guard let castValue = try? AvroValue(value: self, as: .avroInt), case .avroInt(let result) = castValue else {
             return nil
         }
+        return result
+    }
+
+    public var boolean: Bool? {
+        guard let castValue = try? AvroValue(value: self, as: .avroBoolean), case .avroBoolean(let result) = castValue else {
+            return nil
+        }
+        return result
     }
 
     public var string: String? {
-        switch self {
-        case .avroStringValue(let value) :
-            return value
-        case .avroUnionValue(_, let box) :
-            return box.value.string
-        default :
+        guard let castValue = try? AvroValue(value: self, as: .avroString), case .avroString(let result) = castValue else {
             return nil
         }
-    }
-
-    public var integer: Int32? {
-        switch self {
-        case .avroIntValue(let value) :
-            return value
-        case .avroUnionValue(_, let box) :
-            return box.value.integer
-        default :
-            return nil
-        }
+        return result
     }
 
     public var long: Int64? {
-        switch self {
-        case .avroLongValue(let value) :
-            return value
-        case .avroUnionValue(_, let box) :
-            return box.value.long
-        default :
+        guard let castValue = try? AvroValue(value: self, as: .avroLong), case .avroLong(let result) = castValue else {
             return nil
         }
+        return result
     }
 
     public var float: Float? {
-        switch self {
-        case .avroFloatValue(let value) :
-            return value
-        case .avroUnionValue(_, let box) :
-            return box.value.float
-        default :
+        guard let castValue = try? AvroValue(value: self, as: .avroFloat), case .avroFloat(let result) = castValue else {
             return nil
         }
+        return result
     }
 
     public var double: Double? {
+        guard let castValue = try? AvroValue(value: self, as: .avroDouble), case .avroDouble(let result) = castValue else {
+            return nil
+        }
+        return result
+    }
+    
+    public var bytes: Data? {
+        guard let castValue = try? AvroValue(value: self, as: .avroBytes), case .avroBytes(let result) = castValue else {
+            return nil
+        }
+        return result
+    }
+    
+    public var map: [String: AvroValue]? {
         switch self {
-        case .avroDoubleValue(let value) :
-            return value
-        case .avroUnionValue(_, let box) :
-            return box.value.double
-        default :
+        case .avroMap(_, let result),
+             .avroRecord(_, let result):
+            return result.mapValues { $0.toAvro() }
+        case .avroUnion(_, _, let subValue):
+            return subValue.toAvro().map
+        default:
             return nil
         }
     }
 
-    public var bytes: [UInt8]? {
+    public var array: [AvroValue]? {
         switch self {
-        case .avroBytesValue(let value) :
-            return value
-        case .avroUnionValue(_, let box) :
-            return box.value.bytes
-        default :
+        case .avroArray(_, let items):
+            return items.map { $0.toAvro() }
+        case .avroUnion(_, _, let subValue):
+            return subValue.toAvro().array
+        default:
             return nil
         }
     }
 
-    public var array: Array<AvroValue>? {
-        switch self {
-        case .avroArrayValue(let values) :
-            return values
-        case .avroUnionValue(_, let box) :
-            return box.value.array
-        default :
-            return nil
+    public init(binaryData: Data, as schema: Schema) throws {
+        let decoder = BinaryAvroDecoder()
+        self = try decoder.decode(binaryData, as: schema)
+    }
+    public init(jsonData: Data, as schema: Schema) throws {
+        let decoder = JsonAvroDecoder()
+        self = try decoder.decode(jsonData, as: schema)
+    }
+    
+    public func encode(encoding: GenericAvroEncoder.Encoding = .binary) throws -> Data {
+        let encoder = GenericAvroEncoder(encoding: encoding)
+        return try encoder.encode(self)
+    }
+}
+
+extension AvroValue: AvroValueConvertible {
+    public func toAvro() -> AvroValue {
+        return self
+    }
+
+    private static func bytesToString(data: Data) -> String? {
+        return String(data: data, encoding: .utf8)
+    }
+    
+    private static func stringToBytes(string: String) -> Data? {
+        return string.data(using: .utf8, allowLossyConversion: false)
+    }
+    
+    private static func stringToUnicodeScalars(string: String) -> Data {
+        return Data(bytes: string.unicodeScalars.map { UInt8($0.value & 0xff) })
+    }
+    
+    public init(value: AvroValueConvertible, as schema: Schema) throws {
+        let avroValue = value.toAvro()
+        switch (avroValue, schema) {
+        case (.avroBoolean(_), .avroBoolean),
+             (.avroInt(_), .avroInt),
+             (.avroLong(_), .avroLong),
+             (.avroNull, .avroNull),
+             (.avroString(_), .avroString),
+             (.avroBytes(_), .avroBytes):
+            self = avroValue
+            
+        case (.avroInt(let inner), .avroDouble):
+            self = .avroDouble(Double(inner))
+        case (.avroInt(let inner), .avroFloat):
+            self = .avroFloat(Float(inner))
+        case (.avroInt(let inner), .avroLong):
+            self = .avroLong(Int64(inner))
+            
+        case (.avroLong(let inner), .avroDouble):
+            self = .avroDouble(Double(inner))
+        case (.avroLong(let inner), .avroFloat):
+            self = .avroFloat(Float(inner))
+        case (.avroLong(let inner), .avroInt):
+            self = .avroInt(Int32(inner))
+            
+        case (.avroFloat(let inner), .avroFloat):
+            guard !inner.isNaN && !inner.isInfinite else {
+                throw SchemaError.invalid
+            }
+            self = avroValue
+        case (.avroFloat(let inner), .avroDouble):
+            guard !inner.isNaN && !inner.isInfinite else {
+                throw SchemaError.invalid
+            }
+            self = .avroDouble(Double(inner))
+        case (.avroFloat(let inner), .avroInt):
+            self = .avroInt(Int32(inner))
+        case (.avroFloat(let inner), .avroLong):
+            self = .avroLong(Int64(inner))
+            
+        case (.avroDouble(let inner), .avroDouble):
+            guard !inner.isNaN && !inner.isInfinite else {
+                throw SchemaError.invalid
+            }
+            self = avroValue
+        case (.avroDouble(let inner), .avroInt):
+            self = .avroInt(Int32(inner))
+        case (.avroDouble(let inner), .avroFloat):
+            guard !inner.isNaN && !inner.isInfinite else {
+                throw SchemaError.invalid
+            }
+            self = .avroFloat(Float(inner))
+        case (.avroDouble(let inner), .avroLong):
+            self = .avroLong(Int64(inner))
+            
+            
+        case (.avroString(let inner), .avroBytes):
+            guard let data = AvroValue.stringToBytes(string: inner) else {
+                throw SchemaError.conversionFailed
+            }
+            self = .avroBytes(data)
+        case (.avroBytes(let inner), .avroString):
+            guard let newValue = AvroValue.bytesToString(data: inner) else {
+                throw SchemaError.conversionFailed
+            }
+            self = .avroString(newValue)
+            
+        case (.avroFixed(_, let inner), .avroBytes):
+            self = .avroBytes(inner)
+        case (.avroFixed(_, let inner), .avroString):
+            guard let newValue = AvroValue.bytesToString(data: inner) else {
+                throw SchemaError.conversionFailed
+            }
+            self = .avroString(newValue)
+            
+        case (.avroBytes(let value), .avroFixed(_, let count)):
+            guard count == value.count else {
+                throw SchemaError.conversionFailed
+            }
+            self = .avroFixed(schema, value)
+        case (.avroString(let inner), .avroFixed(_, let count)):
+            guard let data = AvroValue.stringToBytes(string: inner), data.count == count else {
+                throw SchemaError.conversionFailed
+            }
+            self = .avroFixed(schema, data)
+            
+        case (.avroArray(_, let values), .avroArray(let subSchema)):
+            let newValues = try values.map { try AvroValue(value: $0, as: subSchema) }
+            self = .avroArray(itemSchema: subSchema, newValues)
+        case (.avroMap(_, let values), .avroMap(let subSchema)),
+             (.avroRecord(_, let values), .avroMap(let subSchema)):
+            let newValues = try values.mapValues { try AvroValue(value: $0, as: subSchema) }
+            self = .avroMap(valueSchema: subSchema, newValues)
+        case (.avroEnum(_, let index, let value), .avroEnum(_, let symbols)):
+            if value == symbols[index] {
+                self = .avroEnum(schema, index: index, value)
+            } else {
+                guard let newIndex = symbols.firstIndex(of: value) else {
+                    throw SchemaError.enumSymbolNotFound(value, symbols: symbols)
+                }
+                self = .avroEnum(schema, index: newIndex, value)
+            }
+        case (.avroString(let value), .avroEnum(_, let symbols)):
+            guard let newIndex = symbols.firstIndex(of: value) else {
+                throw SchemaError.enumSymbolNotFound(value, symbols: symbols)
+            }
+            self = .avroEnum(schema, index: newIndex, value)
+        case (.avroEnum(_, _, let value), .avroString):
+            self = .avroString(value)
+        case (.avroRecord(_, let fields), .avroRecord(_, let subSchemas)),
+             (.avroMap(_, let fields), .avroRecord(_, let subSchemas)):
+            var newValue: [String: AvroValueConvertible] = [:]
+            for subSchema in subSchemas {
+                switch subSchema {
+                case .avroField(let fieldName, let fieldSchema, let fieldDefault):
+                    if let fieldValue = fields[fieldName] {
+                        newValue[fieldName] = try AvroValue(value: fieldValue, as: fieldSchema)
+                    } else if let fieldDefault = fieldDefault {
+                        if case .avroString(let fieldDefaultString) = fieldDefault {
+                            if case .avroBytes = fieldSchema {
+                                newValue[fieldName] = AvroValue.avroBytes(AvroValue.stringToUnicodeScalars(string: fieldDefaultString))
+                                continue
+                            } else if case .avroFixed(_, _) = fieldSchema {
+                                newValue[fieldName] = try AvroValue(value: AvroValue.stringToUnicodeScalars(string: fieldDefaultString), as: fieldSchema)
+                                continue
+                            }
+                        }
+                        newValue[fieldName] = try AvroValue(value: fieldDefault, as: fieldSchema)
+                    } else {
+                        throw SchemaError.fieldNotFound(fieldName)
+                    }
+                default:
+                    throw SchemaError.invalid
+                }
+            }
+            self = .avroRecord(schema, newValue)
+        case (.avroUnion(_, let index, let inner), .avroUnion(let subSchemas)):
+            guard index < subSchemas.count,
+                inner.toAvro().schema.typeName == subSchemas[index].typeName else
+            {
+                self = try AvroValue(value: inner, as: schema)
+                return
+            }
+            let newValue = try AvroValue(value: inner, as: subSchemas[index])
+            self = .avroUnion(schemaOptions: subSchemas, index: index, newValue)
+        case (.avroUnion(_, _, let inner), _):
+            self = try AvroValue(value: inner, as: schema)
+        case (.avroMap(_, let innerValues), .avroUnion(let subSchemas)):
+            let newValue: AvroValueConvertible
+            let newIndex: Int
+            if innerValues.count == 1,
+                let (key, inner) = innerValues.first,
+                let index = subSchemas.firstIndex(where: { $0.typeName == key })
+            {
+                newValue = inner
+                newIndex = index
+            } else {
+                guard let index = subSchemas.firstIndex(where: { $0.typeName == "map" }) else {
+                    throw SchemaError.mismatch
+                }
+                newIndex = index
+                newValue = avroValue
+            }
+            let newAvroValue = try AvroValue(value: newValue, as: subSchemas[newIndex])
+            self = .avroUnion(schemaOptions: subSchemas, index: newIndex, newAvroValue)
+
+        case (_, .avroUnion(let subSchemas)):
+            // get an exact match
+            if let newIndex = subSchemas.firstIndex(where: { $0.typeName == avroValue.schema.typeName }) {
+                let newValue = try AvroValue(value: avroValue, as: subSchemas[newIndex])
+                self = .avroUnion(schemaOptions: subSchemas, index: newIndex, newValue)
+            } else {
+                // get a convertible match
+                for newIndex in 0 ..< subSchemas.count {
+                    if let newValue = try? AvroValue(value: avroValue, as: subSchemas[newIndex]) {
+                        self = .avroUnion(schemaOptions: subSchemas, index: newIndex, newValue)
+                        return
+                    }
+                }
+                throw SchemaError.mismatch
+            }
+        default:
+            throw SchemaError.mismatch
         }
     }
+}
 
-    public var map: Dictionary<String, AvroValue>? {
-        switch self {
-        case .avroMapValue(let pairs) :
-            return pairs
-        case .avroUnionValue(_, let box) :
-            return box.value.map
-        default :
-            return nil
-        }
-    }
-
-    public var record: Dictionary<String, AvroValue>? {
-        switch self {
-        case .avroRecordValue(let fields) :
-            return fields
-        case .avroUnionValue(_, let box) :
-            return box.value.record
-        default :
-            return nil
-        }
-    }
-
-    public var enumeration: String? {
-        switch self {
-        case .avroEnumValue(_, let value) :
-            return value
-        case .avroUnionValue(_, let box) :
-            return box.value.enumeration
-        default :
-            return nil
-        }
-    }
-
-    public var fixed: [UInt8]? {
-        switch self {
-        case .avroFixedValue(let bytes) :
-            return bytes
-        case .avroUnionValue(_, let box) :
-            return box.value.fixed
-        default :
-            return nil
-        }
-    }
-
-    static func decodeArrayBlock(_ schema: Schema, count:Int64, decoder: AvroDecoder) -> [AvroValue]? {
-        var values: [AvroValue] = []
-        for _ in 0...count - 1 {
-            let value = AvroValue(schema, withDecoder: decoder)
-            switch value {
-            case .avroInvalidValue :
-                return nil
-            default :
-                values.append(value)
-            }
-        }
-        return values
-    }
-
-    static func decodeMapBlock(_ schema: Schema, count:Int64, decoder: AvroDecoder) -> Dictionary<String, AvroValue>? {
-        var pairs: Dictionary<String, AvroValue> = Dictionary()
-        for _ in 0...count - 1 {
-            if let key = AvroValue(.avroStringSchema, withDecoder: decoder).string {
-                let value = AvroValue(schema, withDecoder: decoder)
-                switch value {
-                case .avroInvalidValue :
-                    return nil
-                default :
-                    pairs[key] = value
-                }
-            } else {
-                return nil
-            }
-        }
-        return pairs
-    }
-
-    @discardableResult
-    public func encode(_ encoder: AvroEncoder)
-        -> [UInt8]?
-    {
-        switch self {
-        case .avroNullValue :
-            encoder.encodeNull()
-        case .avroBooleanValue(let value) :
-            encoder.encodeBoolean(value)
-        case .avroIntValue(let value) :
-            encoder.encodeInt(value)
-        case .avroLongValue(let value) :
-            encoder.encodeLong(value)
-        case .avroFloatValue(let value) :
-            encoder.encodeFloat(value)
-        case .avroDoubleValue(let value) :
-            encoder.encodeDouble(value)
-        case .avroStringValue(let value) :
-            encoder.encodeString(value)
-        case .avroBytesValue(let value) :
-            encoder.encodeBytes(value)
-        case .avroFixedValue(let value) :
-            encoder.encodeFixed(value)
-
-        case .avroArrayValue(let values) :
-            encoder.encodeLong(Int64(values.count))
-            for value in values {
-                value.encode(encoder)
-            }
-            encoder.encodeLong(0)
-
-        case .avroMapValue(let pairs) :
-            encoder.encodeLong(Int64(pairs.count))
-            for key in pairs.keys {
-                encoder.encodeString(key)
-                if let value = pairs[key] {
-                    value.encode(encoder)
-                } else {
-                    return nil
+extension AvroValue: Equatable {
+    public static func ==(lhs: AvroValue, rhs: AvroValue) -> Bool {
+        switch (lhs, rhs) {
+        case (.avroNull, .avroNull):
+            return true
+        case (.avroBoolean(let lvalue), .avroBoolean(let rvalue)):
+            return lvalue == rvalue
+        case (.avroInt(let lvalue), .avroInt(let rvalue)):
+            return lvalue == rvalue
+        case (.avroLong(let lvalue), .avroLong(let rvalue)):
+            return lvalue == rvalue
+        case (.avroFloat(let lvalue), .avroFloat(let rvalue)):
+            return lvalue == rvalue
+        case (.avroDouble(let lvalue), .avroDouble(let rvalue)):
+            return lvalue == rvalue
+        case (.avroString(let lvalue), .avroString(let rvalue)):
+            return lvalue == rvalue
+        case (.avroBytes(let lvalue), .avroBytes(let rvalue)):
+            return lvalue == rvalue
+        case (.avroFixed(let lschema, let lvalue), .avroFixed(let rschema, let rvalue)):
+            return lschema == rschema && lvalue == rvalue
+        case (.avroMap(let lschema, let lvalues), .avroMap(let rschema, let rvalues)):
+            guard lschema == rschema, lvalues.keys == rvalues.keys else { return false }
+            for (key, lvalue) in lvalues {
+                guard let rvalue = rvalues[key],
+                    let lAvroValue = try? AvroValue(value: lvalue, as: lschema),
+                    let rAvroValue = try? AvroValue(value: rvalue, as: rschema),
+                    lAvroValue == rAvroValue else {
+                    return false
                 }
             }
-
-        case .avroRecordValue(let pairs) :
-            for key in pairs.keys {
-                encoder.encodeString(key)
-                if let value = pairs[key] {
-                    value.encode(encoder)
-                } else {
-                    return nil
+            return true
+    
+        case (.avroRecord(.avroRecord(let lname, let lfieldSchemas), let lvalues), .avroRecord(.avroRecord(let rname, let rfieldSchemas), let rvalues)):
+            guard lname == rname, lfieldSchemas == rfieldSchemas else { return false }
+            for fieldSchema in lfieldSchemas {
+                guard case .avroField(let fieldName, let innerSchema, _) = fieldSchema,
+                    let lvalue = lvalues[fieldName],
+                    let rvalue = rvalues[fieldName],
+                    let lAvroValue = try? AvroValue(value: lvalue, as: innerSchema),
+                    let rAvroValue = try? AvroValue(value: rvalue, as: innerSchema),
+                    lAvroValue == rAvroValue else {
+                        return false
                 }
             }
-
-        case .avroEnumValue(let index, _) :
-            encoder.encodeInt(Int32(index))
-
-        case .avroUnionValue(let index, let box) :
-            encoder.encodeLong(Int64(index))
-            box.value.encode(encoder)
-        default :
-            return nil
-        }
-        return encoder.bytes
-    }
-
-    public init?(jsonSchema: String, withBytes bytes: [UInt8]) {
-        let avroData = Data(bytes: UnsafeRawPointer(bytes), count: bytes.count)
-
-        self.init(jsonSchema: jsonSchema, withData: avroData)
-    }
-
-    public init?(jsonSchema: String, withData data: Data) {
-        guard let schema = Schema(jsonSchema) else { return nil }
-
-        self.init(schema: schema, withData: data)
-    }
-
-    public init(schema: Schema, withBytes bytes: [UInt8]) {
-        let avroData = Data(bytes: UnsafeRawPointer(bytes) , count: bytes.count)
-
-        self.init(schema: schema, withData: avroData)
-    }
-
-    public init(schema: Schema, withData data: Data) {
-        let decoder = AvroDecoder(data)
-
-        self.init(schema, withDecoder: decoder)
-    }
-
-    init(_ schema: Schema, withDecoder decoder: AvroDecoder) {
-
-        switch schema {
-        case .avroNullSchema :
-            self = .avroNullValue
-
-        case .avroBooleanSchema :
-            if let decoded = decoder.decodeBoolean() {
-                self = .avroBooleanValue(decoded)
-            } else {
-                self = .avroInvalidValue
-            }
-
-        case .avroIntSchema :
-            if let decoded = decoder.decodeInt() {
-                self = .avroIntValue(decoded)
-            } else {
-                self = .avroInvalidValue
-            }
-
-        case .avroLongSchema :
-            if let decoded = decoder.decodeLong() {
-                self = .avroLongValue(decoded)
-            } else {
-                self = .avroInvalidValue
-            }
-
-        case .avroFloatSchema :
-            if let decoded = decoder.decodeFloat() {
-                self = .avroFloatValue(decoded)
-            } else {
-                self = .avroInvalidValue
-            }
-
-        case .avroDoubleSchema :
-            if let decoded = decoder.decodeDouble() {
-                self = .avroDoubleValue(decoded)
-            } else {
-                self = .avroInvalidValue
-            }
-
-        case .avroStringSchema :
-            if let decoded = decoder.decodeString() {
-                self = .avroStringValue(decoded)
-            } else {
-                self = .avroInvalidValue
-            }
-
-        case .avroBytesSchema :
-            if let decoded = decoder.decodeBytes() {
-                self = .avroBytesValue(decoded)
-            } else {
-                self = .avroInvalidValue
-            }
-
-        // TODO: Collections negative count support.
-        case .avroArraySchema(let boxedSchema) :
-            var values: [AvroValue] = []
-            while let count = decoder.decodeLong() {
-                if count == 0 {
-                    self = .avroArrayValue(values)
-                    return
-                }
-
-                if let block = AvroValue.decodeArrayBlock(boxedSchema.value, count: count, decoder: decoder) {
-                    values += block
-                } else {
-                    self = .avroInvalidValue
-                    return
+            return true
+            
+        case (.avroArray(let lschema, let lvalues), .avroArray(let rschema, let rvalues)):
+            guard lschema == rschema, lvalues.count == rvalues.count else { return false }
+            for i in 0 ..< lvalues.count {
+                guard let lAvroValue = try? AvroValue(value: lvalues[i], as: lschema),
+                    let rAvroValue = try? AvroValue(value: rvalues[i], as: rschema),
+                    lAvroValue == rAvroValue else {
+                        return false
                 }
             }
-            self = .avroInvalidValue
+            return true
 
+        case (.avroEnum(let lschema, let lindex, let lvalue), .avroEnum(let rschema, let rindex, let rvalue)):
+            return lschema == rschema && lindex == rindex && lvalue == rvalue
 
-        case .avroMapSchema(let boxedSchema) :
-            var pairs: Dictionary<String, AvroValue> = [:]
-            while let count = decoder.decodeLong() {
-                if count == 0 {
-                    self = .avroMapValue(pairs)
-                    return
-                }
-                if let block = AvroValue.decodeMapBlock(boxedSchema.value, count: count, decoder: decoder) {
-                    pairs += block
-                } else {
-                    self = .avroInvalidValue
-                    return
-                }
+        case (.avroUnion(let lschema, let lindex, let lvalue), .avroUnion(let rschema, let rindex, let rvalue)):
+            guard lschema == rschema,
+                lindex == rindex,
+                let lAvroValue = try? AvroValue(value: lvalue, as: lschema[lindex]),
+                let rAvroValue = try? AvroValue(value: rvalue, as: rschema[rindex]) else {
+                    return false
             }
-            self = .avroInvalidValue
-
-
-        case .avroEnumSchema(_, let enumValues) :
-            if let index = decoder.decodeInt() {
-                if Int(index) < enumValues.count {
-                    self = .avroEnumValue(Int(index), enumValues[Int(index)])
-                    return
-                }
-            }
-            self = .avroInvalidValue
-
-        case .avroRecordSchema(_, let fields) :
-            var pairs: Dictionary<String, AvroValue> = [:]
-            for field in fields {
-                switch field {
-                case .avroFieldSchema(let key, let box) :
-                    pairs[key] = AvroValue(box.value, withDecoder: decoder)
-                default :
-                    self = .avroInvalidValue
-                    return
-                }
-            }
-            self = .avroRecordValue(pairs)
-
-        case .avroFixedSchema(_, let size) :
-            if let bytes = decoder.decodeFixed(size) {
-                self = .avroFixedValue(bytes)
-            } else {
-                self = .avroInvalidValue
-            }
-
-        case .avroUnionSchema(let schemas) :
-            if let index = decoder.decodeLong() {
-                if Int(index) < schemas.count {
-                    self = .avroUnionValue(Int(index), Box(AvroValue(schemas[Int(index)], withDecoder: decoder)))
-                    return
-                }
-            }
-            self = .avroInvalidValue
-
-        default :
-            self = .avroInvalidValue
+            return lAvroValue == rAvroValue
+        default:
+            return false
         }
     }
 }
 
 extension AvroValue: ExpressibleByNilLiteral {
     public init(nilLiteral: ()) {
-        self = .avroNullValue
+        self = .avroNull
     }
 }
 
 extension AvroValue: ExpressibleByBooleanLiteral {
     public init(booleanLiteral value: Bool) {
-        self = .avroBooleanValue(value)
+        self = .avroBoolean(value)
     }
 }
 
 extension AvroValue: ExpressibleByIntegerLiteral {
     public init(integerLiteral value: IntegerLiteralType) {
-        self = .avroLongValue(Int64(value))
+        self = .avroLong(Int64(value))
     }
 }
 
 extension AvroValue: ExpressibleByFloatLiteral {
     public init(floatLiteral value: FloatLiteralType) {
-        self = .avroDoubleValue(value)
+        self = .avroDouble(value)
     }
 }
 
 extension AvroValue: ExpressibleByStringLiteral {
-
-    public init(unicodeScalarLiteral value: String) {
-        self = .avroInvalidValue
-    }
-
-    public init(extendedGraphemeClusterLiteral value: String) {
-        self = .avroStringValue(value)
-    }
-
     public init(stringLiteral value: String) {
-        self = .avroStringValue(value)
+        self = .avroString(value)
     }
 }
 
 extension AvroValue: ExpressibleByArrayLiteral {
-    public init(arrayLiteral elements: AvroValue...) {
-        self = .avroArrayValue(elements)
+    public init(arrayLiteral elements: AvroValueConvertible...) {
+        self = .avroArray(itemSchema: .avroUnknown, elements)
     }
 }
 
 extension AvroValue: ExpressibleByDictionaryLiteral {
-
-    public init(dictionaryLiteral elements:(String, AvroValue)...) {
-        var tmp = [String:AvroValue](minimumCapacity: elements.count)
+    public init(dictionaryLiteral elements:(String, AvroValueConvertible)...) {
+        var tmp = [String: AvroValueConvertible](minimumCapacity: elements.count)
         for kv in elements {
             tmp[kv.0] = kv.1
         }
-        self = .avroMapValue(tmp)
+        self = .avroMap(valueSchema: .avroUnknown, tmp)
     }
 }

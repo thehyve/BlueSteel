@@ -10,148 +10,82 @@ import Foundation
 
 // MARK: Varint
 
-public struct Varint {
-    let backing: [UInt8]
+public struct Varint: CustomStringConvertible {
+    let backing: Data
 
     public var count: Int {
         return backing.count
     }
 
     public var description: String {
-        get {
-            return backing.description
+        return backing.description
+    }
+
+    init?(fromData data: Data) {
+        var buf = Data()
+        
+        for x in data {
+            buf.append(x)
+            
+            if x & 0x80 == 0 {
+                break
+            }
         }
+        guard !buf.isEmpty else { return nil }
+        self.backing = buf
     }
 
-    // This initializer should never be used directly.
-    // VarintFromBytes should be used instead.
-
-    init(fromBytes bytes: [UInt8]) {
-        self.backing = bytes
-    }
-
-    public init(fromValue value:UInt) {
+    public init(fromValue value: UInt) {
         self.init(fromValue: UInt64(value))
     }
 
-    public init(fromValue value:UInt64) {
-        var buffer: [UInt8] = []
+    public init(fromValue value: UInt64) {
+        var buffer = Data()
         if value == 0 {
             buffer.append(0)
         } else {
-            var tmp = value
-            var idx: Int = 0
-            while tmp > 0 {
-                buffer.append(UInt8(truncate: tmp))
-                if (idx > 0) {
-                    buffer[idx - 1] |= 0x80
+            var shiftedValue = value
+            while shiftedValue > 0 {
+                if !buffer.isEmpty {
+                    buffer[buffer.count - 1] |= 0x80
                 }
+                buffer.append(UInt8(shiftedValue & 0xFF))
 
                 // Next index
-                idx += 1
-                tmp >>= 7
+                shiftedValue >>= 7
             }
         }
 
         self.backing = buffer
     }
 
-    public func toInt64() -> Int64 {
-        return Int64(bitPattern: self.toUInt64())
-    }
-
     public func toUInt64() -> UInt64 {
         var result: UInt64 = 0
 
-        for idx:Int in 0 ..< backing.count {
-            let tmp:UInt8 = backing[idx]
-
-            result |= UInt64(tmp & 0x7F) << UInt64(7 * idx)
+        for idx in 0 ..< backing.count {
+            result |= UInt64(backing[idx] & 0x7F) << UInt64(7 * idx)
         }
+
         return result
-    }
-
-    public static func VarintFromBytes(_ bytes: [UInt8]) -> Varint? {
-        var buf = [UInt8]()
-
-        for x in bytes {
-            buf.append(x)
-
-            if ((x & 0x80) == 0) {
-                break
-            }
-        }
-        if (buf.count > 0) {
-            return Varint(fromBytes: buf)
-        }
-        return nil
-    }
-}
-
-extension Varint {
-
-    public init(fromValue value:Int64) {
-        self = Varint(fromValue: UInt64(value))
-    }
-
-    public init(fromValue value:Int) {
-        self.init(fromValue: Int64(value))
-    }
-}
-
-// MARK: - Integer extensions
-
-extension UInt8 {
-
-    init(truncate val:UInt) {
-        self.init(val & 0xFF)
-    }
-
-    init(truncate val:UInt64) {
-        self.init(val & 0xFF)
-    }
-
-    init(truncate val:UInt32) {
-        self.init(val & 0xFF)
-    }
-
-    init(truncate val:UInt16) {
-        self.init(val & 0xFF)
-    }
-
-}
-
-extension UInt16 {
-
-    init(truncate val:UInt) {
-        self.init(val & 0xFFFF)
-    }
-
-    init(truncate val:UInt64) {
-        self.init(val & 0xFFFF)
-    }
-
-    init(truncate val:UInt32) {
-        self.init(val & 0xFFFF)
-    }
-
-    init(truncate val:UInt16) {
-        self.init(val & 0xFFFF)
     }
 }
 
 // MARK: Zig Zag encoding
 
+extension Int32 {
+    public init(fromZigZag: UInt64) {
+        self = Int32(Int64(bitPattern: ((fromZigZag & 0x1) * UInt64.max) ^ (fromZigZag >> 1)))
+    }
+}
+
 extension Int64 {
-    public func encodeZigZag() -> UInt64 {
-        let encoded:Int64 = ((self << 1) ^ (self >> 63))
-        return UInt64(bitPattern:  encoded)
+    public init(fromZigZag: UInt64) {
+        self = Int64(bitPattern: ((fromZigZag & 0x1) * UInt64.max) ^ (fromZigZag >> 1))
     }
 }
 
 extension UInt64 {
-    public func decodeZigZag() -> Int64 {
-        let decoded = ((self & 0x1) * UInt64.max) ^ (self >> 1)
-        return Int64(bitPattern: decoded)
+    public init(toZigZag: Int64) {
+        self = UInt64(bitPattern: ((toZigZag << 1) ^ (toZigZag >> 63)) as Int64)
     }
 }

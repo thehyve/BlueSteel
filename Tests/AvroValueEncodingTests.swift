@@ -9,19 +9,93 @@
 import XCTest
 import BlueSteel
 
-class AvroValueEncodingTests: XCTestCase {
-    func testEnumEncoding() {
-        let jsonSchema = "{ \"type\" : \"enum\", \"name\" : \"ChannelKey\", \"doc\" : \"Enum of valid channel keys.\", \"symbols\" : [ \"CityIphone\", \"CityMobileWeb\", \"GiltAndroid\", \"GiltcityCom\", \"GiltCom\", \"GiltIpad\", \"GiltIpadSafari\", \"GiltIphone\", \"GiltMobileWeb\", \"NoChannel\" ]}"
-        let schema = Schema(jsonSchema)
-        XCTAssertNotNil(schema)
+extension Data {
+    private static let hexAlphabet = "0123456789abcdef".unicodeScalars.map { $0 }
+    
+    public func hexEncodedString() -> String {
+        return String(self.reduce(into: "".unicodeScalars, { (result, value) in
+            result.append(Data.hexAlphabet[Int(value / 16)])
+            result.append(Data.hexAlphabet[Int(value % 16)])
+        }))
+    }
+}
 
-        let correctAvroValue = AvroValue.avroEnumValue(1, "CityMobileWeb")
-        let extraAvroValue = AvroValue.avroEnumValue(10, "ExtraChannel")
-        let typoAvroValue = AvroValue.avroEnumValue(5, "GiltiPad")
-        let encodedCorrectValue = correctAvroValue.encode(schema!)
-        XCTAssertNotNil(encodedCorrectValue)
-        XCTAssertEqual(encodedCorrectValue!, [0x2])
-        XCTAssertNil(extraAvroValue.encode(schema!), "")
-        XCTAssertNil(typoAvroValue.encode(schema!), "")
+class AvroValueEncodingTests: XCTestCase {
+    let schema: Schema = .avroRecord("A", [
+        .avroField("a", .avroInt, nil),
+        .avroField("b", .avroEnum("B", ["opt1", "opt2"]), nil),
+        .avroField("c", .avroLong, .avroLong(1)),
+        .avroField("d", .avroMap(.avroBytes), nil),
+        .avroField("f", .avroString, nil),
+        .avroField("g", .avroUnion([.avroString, .avroInt]), nil),
+        .avroField("h", .avroBytes, "\u{00ff}")
+        ])
+
+    func testDataEncoding() {
+        for x in String(UnicodeScalar(255)).unicodeScalars {
+            XCTAssertEqual(x.value, 0xff)
+        }
+    }
+    
+    func testEnumEncoding() {
+        let value: AvroValue = [
+            "a": 64,
+            "b": "opt1",
+            "d": ["e": "ab"],
+            "f": "\na",
+            "g": ["int": 2],
+        ]
+
+        let encoder = GenericAvroEncoder(encoding: .binary)
+        guard let encodedCorrectValue = try? encoder.encode(value, as: schema) else {
+            XCTFail()
+            return
+        }
+        XCTAssertEqual(encodedCorrectValue.hexEncodedString(), Data(bytes: [
+            0x80, 0x01, // a
+            0x0, // b
+            0x2, // c
+            0x2, // d count
+            0x2, 0x65, // d key
+            0x4, 0x61, 0x62, // d value
+            0x00, // d end
+            0x4, 0xa, 0x61, // "\na
+            0x2, 0x4, // union int, value 2
+            0x2, 0xff, // default h
+            ]).hexEncodedString())
+    }
+    
+    func testJsonEncoding() {
+        let value: AvroValue = [
+            "a": 1,
+            "b": "opt1",
+            "d": ["e": Data(bytes: [0xff])],
+            "f": "\na\"\\",
+            "g": ["int": 2],
+        ]
+        
+        let encoder = GenericAvroEncoder(encoding: .json)
+
+        guard let encodedCorrectValue = try? encoder.encode(value, as: schema), let stringValue = String(data: encodedCorrectValue, encoding: .utf8) else {
+            XCTFail()
+            return
+        }
+        XCTAssertEqual(stringValue, "{\"a\":1,\"b\":\"opt1\",\"c\":1,\"d\":{\"e\":\"ÿ\"},\"f\":\"\\u000Aa\\\"\\\\\",\"g\":{\"int\":2},\"h\":\"ÿ\"}")
+        
+        let decoder = JsonAvroDecoder()
+        let decodedValue = try! decoder.decode(encodedCorrectValue, as: schema)
+        let avroValue = try! AvroValue(value: value, as: schema)
+        
+        guard let fields = avroValue.map else {
+            XCTFail()
+            return
+        }
+        guard let decodedData = fields["d"]?.map?["e"]?.bytes else {
+            XCTFail()
+            return
+        }
+        XCTAssertEqual(decodedData.hexEncodedString(), "ff")
+
+        XCTAssertEqual(decodedValue, avroValue)
     }
 }

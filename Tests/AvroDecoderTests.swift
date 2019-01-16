@@ -10,11 +10,11 @@ import XCTest
 import BlueSteel
 
 class AvroDecoderTests: XCTestCase {
-    var Decoder: AvroDecoder? = nil
+    var decoder: AvroDecoder!
 
     override func setUp() {
         super.setUp()
-        Decoder = AvroDecoder([0x4, 0x96, 0xde, 0x87, 0x3, 0xcd, 0xcc, 0x4c, 0x40, 0x96, 0xde, 0x87, 0x3])
+        decoder = BinaryAvroDecoder()
     }
 
     override func tearDown() {
@@ -22,10 +22,27 @@ class AvroDecoderTests: XCTestCase {
     }
 
     func testDecodeInt() {
-        let x = Decoder?.decodeInt()
-        let y = Decoder?.decodeInt()
-        XCTAssertEqual(Int(x!), 2, "Decode broken.")
-        XCTAssertEqual(Int(y!), 3209099, "Decoder broken.")
+        let data = Data(bytes: [0x4, 0x96, 0xde, 0x87, 0x3, 0xcd, 0xcc, 0x4c, 0x40, 0x96, 0xde, 0x87, 0x3])
+        let schema: Schema = .avroRecord("test", [
+            .avroField("x", .avroInt, nil),
+            .avroField("y", .avroInt, nil),
+        ])
+        let avroValue = try! decoder.decode(data, as: schema)
+        guard let fields = avroValue.map else {
+            XCTFail()
+            return
+        }
+        
+        guard let x = fields["x"]?.int else {
+            XCTFail()
+            return
+        }
+        XCTAssertEqual(x, 2, "Decode broken.")
+        guard let y = fields["y"]?.int else {
+            XCTFail()
+            return
+        }
+        XCTAssertEqual(y, 3209099, "Decoder broken.")
     }
 
     func testDecodeLong() {

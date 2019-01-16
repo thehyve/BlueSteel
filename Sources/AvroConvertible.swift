@@ -14,42 +14,66 @@ public protocol AvroValueConvertible {
 
 extension String: AvroValueConvertible {
     public func toAvro() -> AvroValue {
-        return .avroStringValue(self)
+        return AvroValue.avroString(self)
     }
 }
 
 extension Bool: AvroValueConvertible {
     public func toAvro() -> AvroValue {
-        return .avroBooleanValue(self)
+        return AvroValue.avroBoolean(self)
     }
 }
 
 extension Int: AvroValueConvertible {
     public func toAvro() -> AvroValue {
-        return .avroLongValue(Int64(self))
+        return AvroValue.avroLong(Int64(self))
     }
 }
 
 extension Int32: AvroValueConvertible {
     public func toAvro() -> AvroValue {
-        return .avroIntValue(self)
+        return AvroValue.avroInt(self)
     }
 }
 
 extension Int64: AvroValueConvertible {
     public func toAvro() -> AvroValue {
-        return .avroLongValue(self)
+        return AvroValue.avroLong(self)
     }
 }
 
 extension Float: AvroValueConvertible {
     public func toAvro() -> AvroValue {
-        return .avroFloatValue(self)
+        return AvroValue.avroFloat(self)
     }
 }
 
 extension Double: AvroValueConvertible {
     public func toAvro() -> AvroValue {
-        return .avroDoubleValue(self)
+        return AvroValue.avroDouble(self)
+    }
+}
+
+extension Data: AvroValueConvertible {
+    public func toAvro() -> AvroValue {
+        return AvroValue.avroBytes(self)
+    }
+}
+
+extension Dictionary: AvroValueConvertible where Key == String, Value == AvroValueConvertible {
+    public func toAvro() -> AvroValue {
+        return AvroValue.avroMap(valueSchema: .avroUnknown, self)
+    }
+}
+
+extension Array: AvroValueConvertible where Element == AvroValueConvertible {
+    public func toAvro() -> AvroValue {
+        return AvroValue.avroArray(itemSchema: .avroUnknown, self)
+    }
+}
+
+extension NSNull: AvroValueConvertible {
+    public func toAvro() -> AvroValue {
+        return AvroValue.avroNull
     }
 }

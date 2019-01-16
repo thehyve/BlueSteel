@@ -13,8 +13,3 @@ FOUNDATION_EXPORT double BlueSteelVersionNumber;
 
 //! Project version string for BlueSteel.
 FOUNDATION_EXPORT const unsigned char BlueSteelVersionString[];
-
-// In this header, you should import all the public headers of your framework using statements like #import <BlueSteel/PublicHeader.h>
-
-unsigned char *BlueSteel_SHA256(const void *data, uint32_t len, unsigned char *md);
-
