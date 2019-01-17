@@ -123,8 +123,10 @@ public enum AvroValue {
         case .avroMap(_, let result),
              .avroRecord(_, let result):
             return result.mapValues { $0.toAvro() }
+
         case .avroUnion(_, _, let subValue):
             return subValue.toAvro().map
+
         default:
             return nil
         }
@@ -134,19 +136,23 @@ public enum AvroValue {
         switch self {
         case .avroArray(_, let items):
             return items.map { $0.toAvro() }
+
         case .avroUnion(_, _, let subValue):
             return subValue.toAvro().array
+
         default:
             return nil
         }
     }
 
-    public init(binaryData: Data, as schema: Schema) throws {
-        let decoder = BinaryAvroDecoder()
-        self = try decoder.decode(binaryData, as: schema)
-    }
-    public init(jsonData: Data, as schema: Schema) throws {
-        let decoder = JsonAvroDecoder()
-        self = try decoder.decode(jsonData, as: schema)
+    public init(data: Data, as schema: Schema, encoding: AvroEncoding = .binary) throws {
+        let decoder: AvroDecoder
+        switch encoding {
+        case .binary:
+            decoder = BinaryAvroDecoder()
+        case .json:
+            decoder = JsonAvroDecoder()
+        }
+        self = try decoder.decode(data, as: schema)
     }
 }

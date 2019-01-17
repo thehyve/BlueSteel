@@ -13,22 +13,31 @@ extension AvroValue: Equatable {
         switch (lhs, rhs) {
         case (.avroNull, .avroNull):
             return true
+
         case (.avroBoolean(let lvalue), .avroBoolean(let rvalue)):
             return lvalue == rvalue
+
         case (.avroInt(let lvalue), .avroInt(let rvalue)):
             return lvalue == rvalue
+
         case (.avroLong(let lvalue), .avroLong(let rvalue)):
             return lvalue == rvalue
+
         case (.avroFloat(let lvalue), .avroFloat(let rvalue)):
             return lvalue == rvalue
+
         case (.avroDouble(let lvalue), .avroDouble(let rvalue)):
             return lvalue == rvalue
+
         case (.avroString(let lvalue), .avroString(let rvalue)):
             return lvalue == rvalue
+
         case (.avroBytes(let lvalue), .avroBytes(let rvalue)):
             return lvalue == rvalue
+
         case (.avroFixed(let lschema, let lvalue), .avroFixed(let rschema, let rvalue)):
             return lschema == rschema && lvalue == rvalue
+
         case (.avroMap(let lschema, let lvalues), .avroMap(let rschema, let rvalues)):
             guard lschema == rschema, lvalues.keys == rvalues.keys else { return false }
             for (key, lvalue) in lvalues {
@@ -77,6 +86,7 @@ extension AvroValue: Equatable {
                     return false
             }
             return lAvroValue == rAvroValue
+
         default:
             return false
         }

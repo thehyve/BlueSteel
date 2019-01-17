@@ -1,24 +1,20 @@
 //
-//  AvroEncoder.swift
+//  AvroCoding.swift
 //  BlueSteel
 //
-//  Created by Matt Isaacs.
-//  Copyright (c) 2014 Gilt. All rights reserved.
+//  Created by Joris Borgdorff on 17/01/2019.
+//  Copyright © 2019 RADAR-base. All rights reserved.
 //
-
-//
-// AvroEncoder(Schema schema)
-// encoder.encode(value) -> Data?
-//
-// AvroDecoder(Schema schema)
-// decoder.decode(data) -> AvroValue
-
 
 import Foundation
 
 public protocol AvroEncoder {
     func encode(_ value: AvroValue) throws -> Data
     func encode(_ value: AvroValueConvertible, as schema: Schema) throws -> Data
+}
+
+public protocol AvroDecoder {
+    func decode(_ data: Data, as schema: Schema) throws -> AvroValue
 }
 
 public enum AvroCodingError: Error {
@@ -30,4 +26,17 @@ public enum AvroCodingError: Error {
     case arraySizeMismatch
     case mapSizeMismatch
     case mapKeyTypeMismatch
+}
+
+public enum AvroEncoding {
+    case binary
+    case json
+}
+
+enum SchemaCodingError: Error {
+    case typeMismatch
+    case notAnObject
+    case unknownEncoding
+    case unknownType(String)
+    case missingField(String)
 }

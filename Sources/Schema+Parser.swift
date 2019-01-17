@@ -42,14 +42,16 @@ extension Schema {
         public mutating func parse(_ json: Data) throws -> Schema {
             let jsonAny = try JSONSerialization.jsonObject(with: json, options: [])
             guard let jsonObject = jsonAny as? [String: Any] else {
-                throw CodingError.notAnObject
+                throw SchemaCodingError.notAnObject
             }
 
             return try parse(jsonObject, typeKey:"type", namespace: nil)
         }
 
         public mutating func parse(_ json: String) throws -> Schema {
-            guard let schemaData = json.data(using: .utf8, allowLossyConversion: false) else { throw CodingError.unknownEncoding }
+            guard let schemaData = json.data(using: .utf8, allowLossyConversion: false) else {
+                throw SchemaCodingError.unknownEncoding
+            }
 
             return try parse(schemaData)
         }
@@ -96,18 +98,18 @@ extension Schema {
                     case .aRecord :
                         // Records must be named
                         guard let recordName = json["name"] as? String else {
-                            throw CodingError.missingField("record name")
+                            throw SchemaCodingError.missingField("record name")
                         }
                         let fullRecordName = Schema.assembleFullName(schemaNamespace, name: recordName)
 
                         guard let fields = json["fields"] as? [[String: Any]] else {
-                            throw CodingError.missingField("record fields")
+                            throw SchemaCodingError.missingField("record fields")
                         }
                         var recordFields: [Schema] = []
 
                         for field in fields {
                             guard let fieldName = field["name"] as? String else {
-                                throw CodingError.missingField("field name")
+                                throw SchemaCodingError.missingField("field name")
                             }
                             let schema = try parse(field, typeKey: "type", namespace: schemaNamespace)
 
@@ -127,15 +129,15 @@ extension Schema {
 
                     case .aEnum :
                         guard let enumName = json["name"] as? String else {
-                            throw CodingError.missingField("enum name")
+                            throw SchemaCodingError.missingField("enum name")
                         }
                         guard let symbols = json["symbols"] as? [Any] else {
-                            throw CodingError.missingField("enum symbols")
+                            throw SchemaCodingError.missingField("enum symbols")
                         }
                         var symbolStrings: [String] = []
                         for sym in symbols {
                             guard let symbol = sym as? String else {
-                                throw CodingError.typeMismatch
+                                throw SchemaCodingError.typeMismatch
                             }
                             symbolStrings.append(symbol)
                         }
@@ -148,10 +150,10 @@ extension Schema {
 
                     case .aFixed:
                         guard let fixedName = json["name"] as? String else {
-                            throw CodingError.missingField("fixed name")
+                            throw SchemaCodingError.missingField("fixed name")
                         }
                         guard let size = json["size"] as? Int else {
-                            throw CodingError.missingField("fixed size")
+                            throw SchemaCodingError.missingField("fixed size")
                         }
                         let fullFixedName = Schema.assembleFullName(schemaNamespace, name: fixedName)
                         let result = Schema.avroFixed(fullFixedName, size)
@@ -163,7 +165,7 @@ extension Schema {
                     let fullTypeName = Schema.assembleFullName(schemaNamespace, name: typeString)
 
                     guard let cachedSchema = namedTypes[fullTypeName] else {
-                        throw CodingError.unknownType(fullTypeName)
+                        throw SchemaCodingError.unknownType(fullTypeName)
                     }
                     return cachedSchema
                 }
@@ -182,22 +184,14 @@ extension Schema {
                     case let value as [String: Any]:
                         subSchema = try parse(value, typeKey: "type", namespace: schemaNamespace)
                     default:
-                        throw CodingError.typeMismatch
+                        throw SchemaCodingError.typeMismatch
                     }
                     schemas.append(subSchema)
                 }
                 return .avroUnion(schemas)
             } else {
-                throw CodingError.typeMismatch
+                throw SchemaCodingError.typeMismatch
             }
-        }
-
-        enum CodingError: Error {
-            case typeMismatch
-            case notAnObject
-            case unknownEncoding
-            case unknownType(String)
-            case missingField(String)
         }
     }
 }

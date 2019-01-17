@@ -9,15 +9,9 @@
 import Foundation
 
 open class GenericAvroEncoder: AvroEncoder {
+    let encoding: AvroEncoding
 
-    public enum Encoding {
-        case binary
-        case json
-    }
-
-    let encoding: Encoding
-
-    public init(encoding: Encoding) {
+    public init(encoding: AvroEncoding) {
         self.encoding = encoding
     }
 

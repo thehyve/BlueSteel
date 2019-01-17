@@ -93,6 +93,7 @@ extension AvroValue: AvroValueConvertible {
 
     public init(value: AvroValueConvertible, as schema: Schema) throws {
         let avroValue = value.toAvro()
+
         switch (avroValue, schema) {
         case (.avroBoolean(_), .avroBoolean),
              (.avroInt(_), .avroInt),
@@ -146,7 +147,6 @@ extension AvroValue: AvroValueConvertible {
         case (.avroDouble(let inner), .avroLong):
             self = .avroLong(Int64(inner))
 
-
         case (.avroString(let inner), .avroBytes):
             guard let data = AvroValue.stringToBytes(string: inner) else {
                 throw SchemaError.conversionFailed
@@ -185,10 +185,12 @@ extension AvroValue: AvroValueConvertible {
         case (.avroArray(_, let values), .avroArray(let subSchema)):
             let newValues = try values.map { try AvroValue(value: $0, as: subSchema) }
             self = .avroArray(itemSchema: subSchema, newValues)
+
         case (.avroMap(_, let values), .avroMap(let subSchema)),
              (.avroRecord(_, let values), .avroMap(let subSchema)):
             let newValues = try values.mapValues { try AvroValue(value: $0, as: subSchema) }
             self = .avroMap(valueSchema: subSchema, newValues)
+
         case (.avroEnum(_, let index, let value), .avroEnum(_, let symbols)):
             if value == symbols[index] {
                 self = .avroEnum(schema, index: index, value)
@@ -205,35 +207,42 @@ extension AvroValue: AvroValueConvertible {
             self = .avroEnum(schema, index: newIndex, value)
         case (.avroEnum(_, _, let value), .avroString):
             self = .avroString(value)
+
         case (.avroRecord(_, let fields), .avroRecord(_, let subSchemas)),
              (.avroMap(_, let fields), .avroRecord(_, let subSchemas)):
             var newValue: [String: AvroValueConvertible] = [:]
             for subSchema in subSchemas {
-                switch subSchema {
-                case .avroField(let fieldName, let fieldSchema, let fieldDefault):
-                    if let fieldValue = fields[fieldName] {
-                        newValue[fieldName] = try AvroValue(value: fieldValue, as: fieldSchema)
-                    } else if let fieldDefault = fieldDefault {
-                        newValue[fieldName] = try AvroValue(value: fieldDefault, as: fieldSchema)
-                    } else {
-                        throw SchemaError.fieldNotFound(fieldName)
-                    }
-                default:
+                guard case .avroField(let fieldName, let fieldSchema, let fieldDefault) = subSchema else {
                     throw SchemaError.invalid
+                }
+
+                if let fieldValue = fields[fieldName] {
+                    newValue[fieldName] = try AvroValue(value: fieldValue, as: fieldSchema)
+                } else if let fieldDefault = fieldDefault {
+                    newValue[fieldName] = try AvroValue(value: fieldDefault, as: fieldSchema)
+                } else {
+                    throw SchemaError.fieldNotFound(fieldName)
                 }
             }
             self = .avroRecord(schema, newValue)
+
         case (.avroUnion(_, let index, let inner), .avroUnion(let subSchemas)):
             guard index < subSchemas.count,
                 inner.toAvro().schema.typeName == subSchemas[index].typeName else
             {
+                // try to convert any other way than the default way
+                // e.g. can resolve a union if a record name changes but the
+                // record schema is still the same
                 self = try AvroValue(value: inner, as: schema)
                 return
             }
             let newValue = try AvroValue(value: inner, as: subSchemas[index])
             self = .avroUnion(schemaOptions: subSchemas, index: index, newValue)
+
         case (.avroUnion(_, _, let inner), _):
+            // try to map from union schema to only available schema
             self = try AvroValue(value: inner, as: schema)
+
         case (.avroMap(_, let innerValues), .avroUnion(let subSchemas)):
             let newValue: AvroValueConvertible
             let newIndex: Int
@@ -266,14 +275,16 @@ extension AvroValue: AvroValueConvertible {
                         return
                     }
                 }
+                // cannot convert to any of the schemas
                 throw SchemaError.mismatch
             }
+
         default:
             throw SchemaError.mismatch
         }
     }
 
-    public func encode(encoding: GenericAvroEncoder.Encoding = .binary) throws -> Data {
+    public func encode(encoding: AvroEncoding = .binary) throws -> Data {
         let encoder = GenericAvroEncoder(encoding: encoding)
         return try encoder.encode(self)
     }

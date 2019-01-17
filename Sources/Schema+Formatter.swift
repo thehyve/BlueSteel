@@ -80,7 +80,7 @@ extension Schema {
                 if let fieldDefault = fieldDefault {
                     let avroData = try AvroValue(value: fieldDefault, as: fieldType).encode(encoding: .json)
                     guard let encodedValue = String(data: avroData, encoding: .utf8) else {
-                        throw Parser.CodingError.unknownEncoding
+                        throw SchemaCodingError.unknownEncoding
                     }
                     fieldDefaultString = ",\"default\":\(encodedValue)"
                 } else {
@@ -88,8 +88,9 @@ extension Schema {
                 }
 
                 return "{\"name\":\"\(fieldName)\",\"type\":\(fieldTypeString)\(fieldDefaultString)}"
+
             case .avroUnknown:
-                throw Parser.CodingError.unknownType("unknown")
+                throw SchemaCodingError.unknownType("unknown")
             }
         }
     }

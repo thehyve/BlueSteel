@@ -8,8 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		3B0313861DB571DF00AAA59D /* AvroValueConvertible.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B03137C1DB571DF00AAA59D /* AvroValueConvertible.swift */; };
-		3B0313871DB571DF00AAA59D /* AvroDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B03137D1DB571DF00AAA59D /* AvroDecoder.swift */; };
-		3B0313881DB571DF00AAA59D /* AvroEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B03137E1DB571DF00AAA59D /* AvroEncoder.swift */; };
 		3B0313891DB571DF00AAA59D /* AvroValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B03137F1DB571DF00AAA59D /* AvroValue.swift */; };
 		3B03138E1DB571DF00AAA59D /* Schema.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B0313841DB571DF00AAA59D /* Schema.swift */; };
 		3B03138F1DB571DF00AAA59D /* ZigZagInt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B0313851DB571DF00AAA59D /* ZigZagInt.swift */; };
@@ -29,6 +27,7 @@
 		A9BB00C421F0BC810012077F /* AvroValue+CustomStringConvertible.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9BB00C321F0BC810012077F /* AvroValue+CustomStringConvertible.swift */; };
 		A9BB00C621F0BC9D0012077F /* Schema+CustomStringConvertible.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9BB00C521F0BC9D0012077F /* Schema+CustomStringConvertible.swift */; };
 		A9BB00C821F0C1D20012077F /* GenericAvroEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9BB00C721F0C1D20012077F /* GenericAvroEncoder.swift */; };
+		A9BB00CB21F0C9340012077F /* AvroCoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9BB00CA21F0C9340012077F /* AvroCoding.swift */; };
 		A9EDAFEA21E7D711000D5BAD /* BinaryAvroSerializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9EDAFE921E7D711000D5BAD /* BinaryAvroSerializer.swift */; };
 /* End PBXBuildFile section */
 
@@ -44,8 +43,6 @@
 
 /* Begin PBXFileReference section */
 		3B03137C1DB571DF00AAA59D /* AvroValueConvertible.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AvroValueConvertible.swift; sourceTree = "<group>"; };
-		3B03137D1DB571DF00AAA59D /* AvroDecoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AvroDecoder.swift; sourceTree = "<group>"; };
-		3B03137E1DB571DF00AAA59D /* AvroEncoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AvroEncoder.swift; sourceTree = "<group>"; };
 		3B03137F1DB571DF00AAA59D /* AvroValue.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AvroValue.swift; sourceTree = "<group>"; };
 		3B0313841DB571DF00AAA59D /* Schema.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Schema.swift; sourceTree = "<group>"; };
 		3B0313851DB571DF00AAA59D /* ZigZagInt.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ZigZagInt.swift; sourceTree = "<group>"; };
@@ -73,6 +70,7 @@
 		A9BB00C321F0BC810012077F /* AvroValue+CustomStringConvertible.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AvroValue+CustomStringConvertible.swift"; sourceTree = "<group>"; };
 		A9BB00C521F0BC9D0012077F /* Schema+CustomStringConvertible.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Schema+CustomStringConvertible.swift"; sourceTree = "<group>"; };
 		A9BB00C721F0C1D20012077F /* GenericAvroEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenericAvroEncoder.swift; sourceTree = "<group>"; };
+		A9BB00CA21F0C9340012077F /* AvroCoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvroCoding.swift; sourceTree = "<group>"; };
 		A9EDAFE921E7D711000D5BAD /* BinaryAvroSerializer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinaryAvroSerializer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -168,14 +166,13 @@
 		A9BB00C921F0C2D10012077F /* coding */ = {
 			isa = PBXGroup;
 			children = (
-				3B03137E1DB571DF00AAA59D /* AvroEncoder.swift */,
 				A9BB00C721F0C1D20012077F /* GenericAvroEncoder.swift */,
 				A9EDAFE921E7D711000D5BAD /* BinaryAvroSerializer.swift */,
 				A97E9C6521EFC2E600633A1E /* JsonAvroSerializer.swift */,
-				3B03137D1DB571DF00AAA59D /* AvroDecoder.swift */,
 				A97E9C6721EFC37500633A1E /* BinaryAvroDecoder.swift */,
 				A97E9C6921EFC39B00633A1E /* JsonAvroDecoder.swift */,
 				3B0313851DB571DF00AAA59D /* ZigZagInt.swift */,
+				A9BB00CA21F0C9340012077F /* AvroCoding.swift */,
 			);
 			path = coding;
 			sourceTree = "<group>";
@@ -293,11 +290,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				3B03138E1DB571DF00AAA59D /* Schema.swift in Sources */,
-				3B0313871DB571DF00AAA59D /* AvroDecoder.swift in Sources */,
 				A97E9C6A21EFC39B00633A1E /* JsonAvroDecoder.swift in Sources */,
 				A9BB00C821F0C1D20012077F /* GenericAvroEncoder.swift in Sources */,
 				A9BB00C021F0BC0E0012077F /* AvroValue+Equatable.swift in Sources */,
-				3B0313881DB571DF00AAA59D /* AvroEncoder.swift in Sources */,
+				A9BB00CB21F0C9340012077F /* AvroCoding.swift in Sources */,
 				3B0313861DB571DF00AAA59D /* AvroValueConvertible.swift in Sources */,
 				3B03138F1DB571DF00AAA59D /* ZigZagInt.swift in Sources */,
 				3B0313891DB571DF00AAA59D /* AvroValue.swift in Sources */,
