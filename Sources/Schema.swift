@@ -37,7 +37,7 @@ public enum Schema {
             return name
         }
     }
-    
+
     public init(json: Data) throws {
         var parser = Parser()
         self = try parser.parse(json)

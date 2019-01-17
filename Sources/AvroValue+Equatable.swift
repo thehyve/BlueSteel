@@ -40,7 +40,7 @@ extension AvroValue: Equatable {
                 }
             }
             return true
-            
+
         case (.avroRecord(.avroRecord(let lname, let lfieldSchemas), let lvalues), .avroRecord(.avroRecord(let rname, let rfieldSchemas), let rvalues)):
             guard lname == rname, lfieldSchemas == rfieldSchemas else { return false }
             for fieldSchema in lfieldSchemas {
@@ -54,7 +54,7 @@ extension AvroValue: Equatable {
                 }
             }
             return true
-            
+
         case (.avroArray(let lschema, let lvalues), .avroArray(let rschema, let rvalues)):
             guard lschema == rschema, lvalues.count == rvalues.count else { return false }
             for i in 0 ..< lvalues.count {
@@ -65,10 +65,10 @@ extension AvroValue: Equatable {
                 }
             }
             return true
-            
+
         case (.avroEnum(let lschema, let lindex, let lvalue), .avroEnum(let rschema, let rindex, let rvalue)):
             return lschema == rschema && lindex == rindex && lvalue == rvalue
-            
+
         case (.avroUnion(let lschema, let lindex, let lvalue), .avroUnion(let rschema, let rindex, let rvalue)):
             guard lschema == rschema,
                 lindex == rindex,

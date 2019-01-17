@@ -18,7 +18,7 @@ fileprivate enum AvroType: String {
     case aDouble = "double"
     case aString = "string"
     case aBytes = "bytes"
-    
+
     // Complex
     case aEnum = "enum"
     case aFixed = "fixed"
@@ -30,7 +30,7 @@ fileprivate enum AvroType: String {
 extension Schema {
     public struct Parser {
         public var namedTypes: [String: Schema]
-        
+
         public init() {
             namedTypes = [:]
         }
@@ -44,16 +44,16 @@ extension Schema {
             guard let jsonObject = jsonAny as? [String: Any] else {
                 throw CodingError.notAnObject
             }
-            
+
             return try parse(jsonObject, typeKey:"type", namespace: nil)
         }
-        
+
         public mutating func parse(_ json: String) throws -> Schema {
             guard let schemaData = json.data(using: .utf8, allowLossyConversion: false) else { throw CodingError.unknownEncoding }
-            
+
             return try parse(schemaData)
         }
-        
+
         mutating func parse(_ json: [String: Any], typeKey key: String, namespace ns: String?) throws -> Schema {
             var schemaNamespace: String?
             if let jsonNamespace = json["namespace"] as? String {
@@ -61,10 +61,10 @@ extension Schema {
             } else {
                 schemaNamespace = ns
             }
-            
+
             if let typeString = json[key] as? String {
                 let avroType = AvroType(rawValue: typeString)
-                
+
                 if let avroType = avroType {
                     switch avroType {
                     case .aBoolean :
@@ -83,34 +83,34 @@ extension Schema {
                         return .avroNull
                     case .aBytes :
                         return .avroBytes
-                        
+
                     case .aMap :
                         let schema = try parse(json, typeKey: "values", namespace: schemaNamespace)
-                        
+
                         return .avroMap(schema)
                     case .aArray :
                         let schema = try parse(json, typeKey: "items", namespace: schemaNamespace)
-                        
+
                         return .avroArray(schema)
-                        
+
                     case .aRecord :
                         // Records must be named
                         guard let recordName = json["name"] as? String else {
                             throw CodingError.missingField("record name")
                         }
                         let fullRecordName = Schema.assembleFullName(schemaNamespace, name: recordName)
-                        
+
                         guard let fields = json["fields"] as? [[String: Any]] else {
                             throw CodingError.missingField("record fields")
                         }
                         var recordFields: [Schema] = []
-                        
+
                         for field in fields {
                             guard let fieldName = field["name"] as? String else {
                                 throw CodingError.missingField("field name")
                             }
                             let schema = try parse(field, typeKey: "type", namespace: schemaNamespace)
-                            
+
                             let fieldDefault: AvroValue?
                             if let fieldDefaultValue = field["default"] {
                                 let decoder = JsonAvroDecoder()
@@ -118,13 +118,13 @@ extension Schema {
                             } else {
                                 fieldDefault = nil
                             }
-                            
+
                             recordFields.append(.avroField(fieldName, schema, fieldDefault))
                         }
                         let result = Schema.avroRecord(fullRecordName, recordFields)
                         namedTypes[fullRecordName] = result
                         return result
-                        
+
                     case .aEnum :
                         guard let enumName = json["name"] as? String else {
                             throw CodingError.missingField("enum name")
@@ -139,9 +139,9 @@ extension Schema {
                             }
                             symbolStrings.append(symbol)
                         }
-                        
+
                         let fullEnumName = Schema.assembleFullName(schemaNamespace, name: enumName)
-                        
+
                         let result = Schema.avroEnum(fullEnumName, symbolStrings)
                         namedTypes[fullEnumName] = result
                         return result
@@ -161,7 +161,7 @@ extension Schema {
                 } else {
                     // Schema type is invalid
                     let fullTypeName = Schema.assembleFullName(schemaNamespace, name: typeString)
-                    
+
                     guard let cachedSchema = namedTypes[fullTypeName] else {
                         throw CodingError.unknownType(fullTypeName)
                     }
@@ -191,7 +191,7 @@ extension Schema {
                 throw CodingError.typeMismatch
             }
         }
-        
+
         enum CodingError: Error {
             case typeMismatch
             case notAnObject

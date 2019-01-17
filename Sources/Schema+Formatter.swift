@@ -11,15 +11,15 @@ import Foundation
 extension Schema {
     public struct Formatter {
         var existingTypes: Set<String>
-        
+
         public init () {
             existingTypes = []
         }
-        
+
         public init(existingTypeNames existingTypes: Set<String>) {
             self.existingTypes = existingTypes
         }
-        
+
         public mutating func jsonString(_ schema: Schema) throws -> String {
             switch schema {
             case .avroNull :
@@ -38,11 +38,11 @@ extension Schema {
                 return "\"string\""
             case .avroBytes :
                 return "\"bytes\""
-                
+
             case .avroArray(let itemSchema) :
                 let itemString = try jsonString(itemSchema)
                 return "{\"type\":\"array\",\"items\":\(itemString)}"
-                
+
             case .avroMap(let valueSchema) :
                 let valueString = try jsonString(valueSchema)
                 return "{\"type\":\"map\",\"values\":\(valueString)}"
@@ -54,7 +54,7 @@ extension Schema {
                 } else {
                     return "\"\(name)\""
                 }
-                
+
             case .avroRecord(let name, let fields) :
                 if existingTypes.insert(name).inserted {
                     let fieldString = try fields.map { try jsonString($0) }.joined(separator: ",")
@@ -62,18 +62,18 @@ extension Schema {
                 } else {
                     return "\"\(name)\""
                 }
-                
+
             case .avroFixed(let name, let size) :
                 if existingTypes.insert(name).inserted {
                     return "{\"name\":\"\(name)\",\"type\":\"fixed\",\"size\":\(size)}"
                 } else {
                     return "\"\(name)\""
                 }
-                
+
             case .avroUnion(let unionSchemas) :
                 let unionString = try unionSchemas.map { try jsonString($0) }.joined(separator: ",")
                 return "[\(unionString)]"
-                
+
             case .avroField(let fieldName, let fieldType, let fieldDefault) :
                 let fieldTypeString = try jsonString(fieldType)
                 let fieldDefaultString: String

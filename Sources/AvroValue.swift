@@ -34,7 +34,7 @@ public enum AvroValue {
     indirect case avroRecord(Schema, [String: AvroValueConvertible])
     case avroEnum(Schema, index: Int, String)
     case avroFixed(Schema, Data)
-    
+
     public var schema: Schema {
         switch self {
         case .avroNull:
@@ -110,14 +110,14 @@ public enum AvroValue {
         }
         return result
     }
-    
+
     public var bytes: Data? {
         guard let castValue = try? AvroValue(value: self, as: .avroBytes), case .avroBytes(let result) = castValue else {
             return nil
         }
         return result
     }
-    
+
     public var map: [String: AvroValue]? {
         switch self {
         case .avroMap(_, let result),

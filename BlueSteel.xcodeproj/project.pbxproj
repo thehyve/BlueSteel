@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		3B0313861DB571DF00AAA59D /* AvroConvertible.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B03137C1DB571DF00AAA59D /* AvroConvertible.swift */; };
+		3B0313861DB571DF00AAA59D /* AvroValueConvertible.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B03137C1DB571DF00AAA59D /* AvroValueConvertible.swift */; };
 		3B0313871DB571DF00AAA59D /* AvroDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B03137D1DB571DF00AAA59D /* AvroDecoder.swift */; };
 		3B0313881DB571DF00AAA59D /* AvroEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B03137E1DB571DF00AAA59D /* AvroEncoder.swift */; };
 		3B0313891DB571DF00AAA59D /* AvroValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B03137F1DB571DF00AAA59D /* AvroValue.swift */; };
@@ -43,7 +43,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		3B03137C1DB571DF00AAA59D /* AvroConvertible.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AvroConvertible.swift; sourceTree = "<group>"; };
+		3B03137C1DB571DF00AAA59D /* AvroValueConvertible.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AvroValueConvertible.swift; sourceTree = "<group>"; };
 		3B03137D1DB571DF00AAA59D /* AvroDecoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AvroDecoder.swift; sourceTree = "<group>"; };
 		3B03137E1DB571DF00AAA59D /* AvroEncoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AvroEncoder.swift; sourceTree = "<group>"; };
 		3B03137F1DB571DF00AAA59D /* AvroValue.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AvroValue.swift; sourceTree = "<group>"; };
@@ -98,23 +98,16 @@
 		3B03137B1DB571DF00AAA59D /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				3B03137C1DB571DF00AAA59D /* AvroConvertible.swift */,
+				A9BB00C921F0C2D10012077F /* coding */,
 				3B03137F1DB571DF00AAA59D /* AvroValue.swift */,
 				A9BB00C321F0BC810012077F /* AvroValue+CustomStringConvertible.swift */,
 				A9BB00BF21F0BC0E0012077F /* AvroValue+Equatable.swift */,
+				3B03137C1DB571DF00AAA59D /* AvroValueConvertible.swift */,
 				3B0313841DB571DF00AAA59D /* Schema.swift */,
 				A9BB00C521F0BC9D0012077F /* Schema+CustomStringConvertible.swift */,
 				A9BB00C121F0BC440012077F /* Schema+Equatable.swift */,
 				A9BB00BD21F0ADE80012077F /* Schema+Formatter.swift */,
 				A9BB00BB21F086B60012077F /* Schema+Parser.swift */,
-				3B0313851DB571DF00AAA59D /* ZigZagInt.swift */,
-				3B03137E1DB571DF00AAA59D /* AvroEncoder.swift */,
-				A9BB00C721F0C1D20012077F /* GenericAvroEncoder.swift */,
-				A9EDAFE921E7D711000D5BAD /* BinaryAvroSerializer.swift */,
-				A97E9C6521EFC2E600633A1E /* JsonAvroSerializer.swift */,
-				3B03137D1DB571DF00AAA59D /* AvroDecoder.swift */,
-				A97E9C6721EFC37500633A1E /* BinaryAvroDecoder.swift */,
-				A97E9C6921EFC39B00633A1E /* JsonAvroDecoder.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -170,6 +163,21 @@
 				3BA3EC301DB651FD00E4F888 /* ZigZagIntTests.swift */,
 			);
 			path = Tests;
+			sourceTree = "<group>";
+		};
+		A9BB00C921F0C2D10012077F /* coding */ = {
+			isa = PBXGroup;
+			children = (
+				3B03137E1DB571DF00AAA59D /* AvroEncoder.swift */,
+				A9BB00C721F0C1D20012077F /* GenericAvroEncoder.swift */,
+				A9EDAFE921E7D711000D5BAD /* BinaryAvroSerializer.swift */,
+				A97E9C6521EFC2E600633A1E /* JsonAvroSerializer.swift */,
+				3B03137D1DB571DF00AAA59D /* AvroDecoder.swift */,
+				A97E9C6721EFC37500633A1E /* BinaryAvroDecoder.swift */,
+				A97E9C6921EFC39B00633A1E /* JsonAvroDecoder.swift */,
+				3B0313851DB571DF00AAA59D /* ZigZagInt.swift */,
+			);
+			path = coding;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -290,7 +298,7 @@
 				A9BB00C821F0C1D20012077F /* GenericAvroEncoder.swift in Sources */,
 				A9BB00C021F0BC0E0012077F /* AvroValue+Equatable.swift in Sources */,
 				3B0313881DB571DF00AAA59D /* AvroEncoder.swift in Sources */,
-				3B0313861DB571DF00AAA59D /* AvroConvertible.swift in Sources */,
+				3B0313861DB571DF00AAA59D /* AvroValueConvertible.swift in Sources */,
 				3B03138F1DB571DF00AAA59D /* ZigZagInt.swift in Sources */,
 				3B0313891DB571DF00AAA59D /* AvroValue.swift in Sources */,
 				A9EDAFEA21E7D711000D5BAD /* BinaryAvroSerializer.swift in Sources */,

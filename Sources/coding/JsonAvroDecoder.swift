@@ -9,19 +9,19 @@
 import Foundation
 
 open class JsonAvroDecoder : AvroDecoder {
-    public init() {        
+    public init() {
     }
 
     public func decode(_ data: Data, as schema: Schema) throws -> AvroValue {
         let rawValue = try JSONSerialization.jsonObject(with: data, options: [.allowFragments])
         return try decode(any: rawValue, as: schema)
     }
-    
+
     public func decode(any value: Any, as schema: Schema) throws -> AvroValue {
         let convertible = try decodeToConvertible(any: value, as: schema)
         return try AvroValue(value: convertible, as: schema)
     }
-    
+
     private func decodeToConvertible(any: Any, as schema: Schema) throws -> AvroValueConvertible {
         switch any {
         case let result as NSNull:
@@ -80,91 +80,5 @@ open class JsonAvroDecoder : AvroDecoder {
         default:
             throw AvroCodingError.schemaMismatch
         }
-    }
-}
-
-open class BinaryAvroDecoderContext {
-    let data: Data
-    var offset: Int
-    
-    public init(_ data: Data) {
-        self.data = data
-        self.offset = 0
-    }
-    
-    open func decodeNull() {
-        // Nulls aren't actually encoded.
-        return
-    }
-    
-    open func decodeBoolean() -> Bool? {
-        guard offset + 1 <= data.count  else { return nil }
-        
-        defer { offset += 1 }
-        return data[offset] > 0
-    }
-    
-    open func decodeDouble() -> Double? {
-        guard offset + 8 <= data.count else { return nil }
-        
-        defer { offset += 8 }
-        let bitValue: UInt64 = data.advanced(by: offset).withUnsafeBytes { $0.pointee }
-        var value = UInt64(littleEndian: bitValue)
-        
-        return withUnsafePointer(to: &value) { ptr in
-            ptr.withMemoryRebound(to: Double.self, capacity: 1) { $0.pointee }
-        }
-    }
-    
-    open func decodeFloat() -> Float? {
-        guard offset + 4 <= data.count else { return nil }
-        
-        defer { offset += 4 }
-        let bitValue: UInt32 = data.advanced(by: offset).withUnsafeBytes { $0.pointee }
-        var value = UInt32(littleEndian: bitValue)
-        
-        return withUnsafePointer(to: &value, { (ptr: UnsafePointer<UInt32>) -> Float in
-            ptr.withMemoryRebound(to: Float.self, capacity: 1) { $0.pointee }
-        })
-    }
-    
-    open func decodeInt() -> Int32? {
-        guard offset + 1 <= data.count,
-            let x = ZigZagInt(from: data.subdata(in: offset ..< min(offset + 4, data.count))),
-            x.count > 0 else { return nil }
-        offset += x.count
-        return Int32(x.value)
-    }
-    
-    open func decodeLong() -> Int64? {
-        guard offset + 1 <= data.count,
-            let x = ZigZagInt(from: data.subdata(in: offset ..< min(offset + 8, data.count))),
-            x.count > 0 else { return nil }
-        offset += x.count
-        return x.value
-    }
-    
-    open func decodeBytes() -> Data? {
-        guard let size = decodeLong(), Int(size) + offset <= data.count, size != 0 else {
-            return nil
-        }
-        defer { offset += Int(size) }
-        return data.subdata(in: offset ..< offset + Int(size))
-    }
-    
-    open func decodeString() -> String? {
-        guard let rawString = decodeBytes() else {
-            return nil
-        }
-        return String(bytes: rawString, encoding: .utf8)
-        
-    }
-    
-    open func decodeFixed(_ size: Int) -> Data? {
-        guard size + offset <= data.count else {
-            return nil
-        }
-        defer { offset += size }
-        return data.subdata(in: offset ..< offset + size)
     }
 }

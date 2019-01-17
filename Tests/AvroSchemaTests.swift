@@ -71,7 +71,7 @@ class AvroSchemaTests: XCTestCase {
             XCTFail()
             return
         }
-        
+
         guard case .avroDouble = valueSchema else {
             XCTFail()
             return
@@ -108,7 +108,7 @@ class AvroSchemaTests: XCTestCase {
             XCTFail()
             return
         }
-        
+
         XCTAssertEqual(expected, schemas)
     }
 
@@ -157,12 +157,12 @@ class AvroSchemaTests: XCTestCase {
             .avroField("saleId", .avroUnion([.avroNull, .avroLong]), .avroUnion(schemaOptions: [.avroNull, .avroLong], index: 0, AvroValue.avroNull)),
             .avroField("skuId", .avroLong, nil),
         ]
-        
+
         guard case .avroRecord("AddToCartActionEvent", let fields) = schema else {
             XCTFail()
             return
         }
-        
+
         XCTAssertEqual(expectedFields, fields)
     }
 
@@ -212,7 +212,7 @@ class AvroSchemaTests: XCTestCase {
             XCTFail()
             return
         }
-        
+
         XCTAssertEqual(enumName, "ChannelKey", "Unexpected enum name.")
         XCTAssertEqual(expectedSymbols, symbols, "Symbols dont match.")
     }
@@ -317,7 +317,7 @@ class AvroSchemaTests: XCTestCase {
             XCTFail()
         }
     }
-    
+
     func testSchemaParsing() {
         let schema: Schema = .avroRecord("A", [
             .avroField("a", .avroInt, nil),
@@ -362,7 +362,7 @@ class AvroSchemaTests: XCTestCase {
                 ]
             }
             """
-        
+
         let jsonSchema1 = try! Schema(json: jsonString1)
         let jsonSchema2 = try! Schema(json: jsonString1)
         XCTAssertEqual(schema, jsonSchema1)

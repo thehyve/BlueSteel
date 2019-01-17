@@ -22,7 +22,7 @@ class ZigZagIntTests: XCTestCase {
             testToUInt(forValue: Int64(arc4random()) + Int64(Int32.min))
         }
     }
-    
+
     private func testToUInt(forValue expected: Int64) {
         let testvarint = ZigZagInt(value: expected)
         let val = testvarint.value

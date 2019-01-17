@@ -82,15 +82,15 @@ extension AvroValue: AvroValueConvertible {
     public func toAvro() -> AvroValue {
         return self
     }
-    
+
     private static func bytesToString(data: Data) -> String? {
         return String(data: data, encoding: .utf8)
     }
-    
+
     private static func stringToBytes(string: String) -> Data? {
         return string.data(using: .utf8, allowLossyConversion: false)
     }
-    
+
     public init(value: AvroValueConvertible, as schema: Schema) throws {
         let avroValue = value.toAvro()
         switch (avroValue, schema) {
@@ -101,21 +101,21 @@ extension AvroValue: AvroValueConvertible {
              (.avroString(_), .avroString),
              (.avroBytes(_), .avroBytes):
             self = avroValue
-            
+
         case (.avroInt(let inner), .avroDouble):
             self = .avroDouble(Double(inner))
         case (.avroInt(let inner), .avroFloat):
             self = .avroFloat(Float(inner))
         case (.avroInt(let inner), .avroLong):
             self = .avroLong(Int64(inner))
-            
+
         case (.avroLong(let inner), .avroDouble):
             self = .avroDouble(Double(inner))
         case (.avroLong(let inner), .avroFloat):
             self = .avroFloat(Float(inner))
         case (.avroLong(let inner), .avroInt):
             self = .avroInt(Int32(inner))
-            
+
         case (.avroFloat(let inner), .avroFloat):
             guard !inner.isNaN && !inner.isInfinite else {
                 throw SchemaError.invalid
@@ -130,7 +130,7 @@ extension AvroValue: AvroValueConvertible {
             self = .avroInt(Int32(inner))
         case (.avroFloat(let inner), .avroLong):
             self = .avroLong(Int64(inner))
-            
+
         case (.avroDouble(let inner), .avroDouble):
             guard !inner.isNaN && !inner.isInfinite else {
                 throw SchemaError.invalid
@@ -145,8 +145,8 @@ extension AvroValue: AvroValueConvertible {
             self = .avroFloat(Float(inner))
         case (.avroDouble(let inner), .avroLong):
             self = .avroLong(Int64(inner))
-            
-            
+
+
         case (.avroString(let inner), .avroBytes):
             guard let data = AvroValue.stringToBytes(string: inner) else {
                 throw SchemaError.conversionFailed
@@ -157,7 +157,7 @@ extension AvroValue: AvroValueConvertible {
                 throw SchemaError.conversionFailed
             }
             self = .avroString(newValue)
-            
+
         case (.avroFixed(_, let inner), .avroFixed(_, let count)):
             guard inner.count == count else {
                 throw SchemaError.invalid
@@ -170,7 +170,7 @@ extension AvroValue: AvroValueConvertible {
                 throw SchemaError.conversionFailed
             }
             self = .avroString(newValue)
-            
+
         case (.avroBytes(let value), .avroFixed(_, let count)):
             guard count == value.count else {
                 throw SchemaError.conversionFailed
@@ -181,7 +181,7 @@ extension AvroValue: AvroValueConvertible {
                 throw SchemaError.conversionFailed
             }
             self = .avroFixed(schema, data)
-            
+
         case (.avroArray(_, let values), .avroArray(let subSchema)):
             let newValues = try values.map { try AvroValue(value: $0, as: subSchema) }
             self = .avroArray(itemSchema: subSchema, newValues)
@@ -252,7 +252,7 @@ extension AvroValue: AvroValueConvertible {
             }
             let newAvroValue = try AvroValue(value: newValue, as: subSchemas[newIndex])
             self = .avroUnion(schemaOptions: subSchemas, index: newIndex, newAvroValue)
-            
+
         case (_, .avroUnion(let subSchemas)):
             // get an exact match
             if let newIndex = subSchemas.firstIndex(where: { $0.typeName == avroValue.schema.typeName }) {
@@ -272,7 +272,7 @@ extension AvroValue: AvroValueConvertible {
             throw SchemaError.mismatch
         }
     }
-    
+
     public func encode(encoding: GenericAvroEncoder.Encoding = .binary) throws -> Data {
         let encoder = GenericAvroEncoder(encoding: encoding)
         return try encoder.encode(self)

@@ -11,7 +11,7 @@ import BlueSteel
 
 extension Data {
     private static let hexAlphabet = "0123456789abcdef".unicodeScalars.map { $0 }
-    
+
     public func hexEncodedString() -> String {
         return String(self.reduce(into: "".unicodeScalars, { (result, value) in
             result.append(Data.hexAlphabet[Int(value / 16)])
@@ -31,7 +31,7 @@ class AvroValueEncodingTests: XCTestCase {
         .avroField("h", .avroBytes, Data(bytes: [0xff]).toAvro()),
         .avroField("i", .avroFloat, nil)
         ])
-    
+
     func testEnumEncoding() {
         let value: AvroValue = [
             "a": 64,
@@ -61,7 +61,7 @@ class AvroValueEncodingTests: XCTestCase {
             0x0, 0x0, 0x0, 0x0, // 0 float
             ]).hexEncodedString())
     }
-    
+
     func testJsonEncoding() {
         let value: AvroValue = [
             "a": 1,
@@ -71,7 +71,7 @@ class AvroValueEncodingTests: XCTestCase {
             "g": ["int": 2],
             "i": 5.0,
         ]
-        
+
         let encoder = GenericAvroEncoder(encoding: .json)
 
         guard let encodedCorrectValue = try? encoder.encode(value, as: schema), let stringValue = String(data: encodedCorrectValue, encoding: .utf8) else {
@@ -79,11 +79,11 @@ class AvroValueEncodingTests: XCTestCase {
             return
         }
         XCTAssertEqual(stringValue, "{\"a\":1,\"b\":\"opt1\",\"c\":1,\"d\":{\"e\":\"ÿ\"},\"f\":\"\\u000Aa\\\"\\\\\",\"g\":{\"int\":2},\"h\":\"ÿ\",\"i\":5.0}")
-        
+
         let decoder = JsonAvroDecoder()
         let decodedValue = try! decoder.decode(encodedCorrectValue, as: schema)
         let avroValue = try! AvroValue(value: value, as: schema)
-        
+
         guard let fields = avroValue.map else {
             XCTFail()
             return

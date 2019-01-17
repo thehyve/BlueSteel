@@ -16,14 +16,14 @@ struct ZigZagInt {
     var count: Int {
         return data.count
     }
-    
+
     var value: Int64 {
         var bitPattern: UInt64 = 0
-        
+
         for idx in 0 ..< data.count {
             bitPattern |= UInt64(data[idx] & 0x7F) << UInt64(7 * idx)
         }
-        
+
         let isPositive = bitPattern & 0x1 == 0
         let unsignedBitPattern = bitPattern >> 1
         return isPositive ? Int64(bitPattern: unsignedBitPattern) : Int64(bitPattern: ~unsignedBitPattern)
@@ -31,10 +31,10 @@ struct ZigZagInt {
 
     init?(from data: Data) {
         var buf = Data(capacity: min(data.count, 8))
-        
+
         for x in data {
             buf.append(x)
-            
+
             if x & 0x80 == 0 {
                 break
             }
@@ -46,7 +46,7 @@ struct ZigZagInt {
     init(value: Int64) {
         let unsignedBitPattern = value << 1
         let zigZag = value >= 0 ? UInt64(bitPattern: unsignedBitPattern) : UInt64(bitPattern: ~unsignedBitPattern)
-        
+
         var buffer = Data(capacity: 8)
         if zigZag == 0 {
             buffer.append(0)

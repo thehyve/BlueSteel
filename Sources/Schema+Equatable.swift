@@ -117,7 +117,7 @@ extension Schema: Hashable {
             hasher.combine(16)
         }
     }
-    
+
     public func hash(into hasher: inout Hasher) {
         var excludingTypes: Set<String> = []
         hash(into: &hasher, excludingTypes: &excludingTypes)
