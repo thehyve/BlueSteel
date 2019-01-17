@@ -11,17 +11,9 @@ import BlueSteel
 
 class AvroValueTests: XCTestCase {
 
-    override func setUp() {
-        super.setUp()
-    }
-
-    override func tearDown() {
-        super.tearDown()
-    }
-
     func testStringValue() {
         let avroBytes = Data(bytes: [0x06, 0x66, 0x6f, 0x6f])
-        let schema = try! Schema("{ \"type\" : \"string\" }")
+        let schema = try! Schema(json: "{ \"type\" : \"string\" }")
         
         if let avroValue = try? AvroValue(binaryData: avroBytes, as: schema) {
             XCTAssertEqual(avroValue.string, "foo", "Strings don't match.")
@@ -32,7 +24,7 @@ class AvroValueTests: XCTestCase {
 
     func testByteValue() {
         let avroBytes = Data(bytes: [0x06, 0x66, 0x6f, 0x6f])
-        let schema = try! Schema("{ \"type\" : \"bytes\" }")
+        let schema = try! Schema(json: "{ \"type\" : \"bytes\" }")
         
         if let avroValue = try? AvroValue(binaryData: avroBytes, as: schema) {
             XCTAssertEqual(avroValue.bytes, Data(bytes: [0x66, 0x6f, 0x6f]), "Byte arrays don't match.")
@@ -43,7 +35,7 @@ class AvroValueTests: XCTestCase {
 
     func testIntValue() {
         let avroBytes = Data(bytes: [0x96, 0xde, 0x87, 0x3])
-        let schema = try! Schema("{ \"type\" : \"int\" }")
+        let schema = try! Schema(json: "{ \"type\" : \"int\" }")
 
         if let avroValue = try? AvroValue(binaryData: avroBytes, as: schema), let value = avroValue.int {
             XCTAssertEqual(Int(value), 3209099, "Byte arrays don't match.")
@@ -54,7 +46,7 @@ class AvroValueTests: XCTestCase {
 
     func testLongValue() {
         let avroBytes = Data(bytes: [0x96, 0xde, 0x87, 0x3])
-        let schema = try! Schema("{ \"type\" : \"long\" }")
+        let schema = try! Schema(json: "{ \"type\" : \"long\" }")
 
         if let avroValue = try? AvroValue(binaryData: avroBytes, as: schema), let value = avroValue.long {
             XCTAssertEqual(Int(value), 3209099, "Byte arrays don't match.")
@@ -65,7 +57,7 @@ class AvroValueTests: XCTestCase {
 
     func testFloatValue() {
         let avroBytes = Data(bytes: [0xc3, 0xf5, 0x48, 0x40])
-        let schema = try! Schema("{ \"type\" : \"float\" }")
+        let schema = try! Schema(json: "{ \"type\" : \"float\" }")
 
         let expected: Float = 3.14
         if let avroValue = try? AvroValue(binaryData: avroBytes, as: schema), let value = avroValue.float {
@@ -77,7 +69,7 @@ class AvroValueTests: XCTestCase {
 
     func testDoubleValue() {
         let avroBytes = Data(bytes: [0x1f, 0x85, 0xeb, 0x51, 0xb8, 0x1e, 0x9, 0x40])
-        let schema = try! Schema("{ \"type\" : \"double\" }")
+        let schema = try! Schema(json: "{ \"type\" : \"double\" }")
 
         let expected: Double = 3.14
         if let avroValue = try? AvroValue(binaryData: avroBytes, as: schema).double {
@@ -91,7 +83,7 @@ class AvroValueTests: XCTestCase {
         let avroFalseBytes = Data(bytes: [0x0])
         let avroTrueBytes = Data(bytes: [0x1])
 
-        let schema = try! Schema("{ \"type\" : \"boolean\" }")
+        let schema = try! Schema(json: "{ \"type\" : \"boolean\" }")
 
         if let avroValue = try? AvroValue(binaryData: avroTrueBytes, as: schema), let value = avroValue.boolean {
             XCTAssert(value, "Value should be true.")
@@ -109,7 +101,7 @@ class AvroValueTests: XCTestCase {
     func testArrayValue() {
         let avroBytes = Data(bytes: [0x04, 0x06, 0x36, 0x00])
         let expected: [Int64] = [3, 27]
-        let schema = try! Schema("{ \"type\" : \"array\", \"items\" : \"long\" }")
+        let schema = try! Schema(json: "{ \"type\" : \"array\", \"items\" : \"long\" }")
 
         guard let avroValue = try? AvroValue(binaryData: avroBytes, as: schema), let values = avroValue.array else {
             XCTAssert(false, "Failed. Nil value")
@@ -128,7 +120,7 @@ class AvroValueTests: XCTestCase {
     func testMapValue() {
         let avroBytes = Data(bytes: [0x02, 0x06, 0x66, 0x6f, 0x6f, 0x36, 0x00])
         let expected: [Int64] = [27]
-        let schema = try! Schema("{ \"type\" : \"map\", \"values\" : \"long\" }")
+        let schema = try! Schema(json: "{ \"type\" : \"map\", \"values\" : \"long\" }")
 
         guard let avroValue = try? AvroValue(binaryData: avroBytes, as: schema), let pairs = avroValue.map else {
             XCTAssert(false, "Failed. Nil value")
@@ -146,7 +138,11 @@ class AvroValueTests: XCTestCase {
 
     func testEnumValue() {
         let avroBytes = Data(bytes: [0x12])
-        let schema = try! Schema("{ \"type\" : \"enum\", \"name\" : \"ChannelKey\", \"doc\" : \"Enum of valid channel keys.\", \"symbols\" : [ \"CityIphone\", \"CityMobileWeb\", \"GiltAndroid\", \"GiltcityCom\", \"GiltCom\", \"GiltIpad\", \"GiltIpadSafari\", \"GiltIphone\", \"GiltMobileWeb\", \"NoChannel\" ]}")
+        let schema = try! Schema(json: """
+            { "type": "enum", "name": "ChannelKey", "doc": "Enum of valid channel keys.", "symbols":
+                ["CityIphone", "CityMobileWeb", "GiltAndroid", "GiltcityCom", "GiltCom", "GiltIpad", "GiltIpadSafari", "GiltIphone", "GiltMobileWeb", "NoChannel" ]
+            }
+            """)
 
         guard let avroValue = try? AvroValue(binaryData: avroBytes, as: schema) else {
             XCTAssert(false, "Failed. Nil value")
@@ -164,7 +160,7 @@ class AvroValueTests: XCTestCase {
 
     func testUnionValue() {
         let avroBytes = Data(bytes: [0x02, 0x02, 0x61])
-        let schema = try! Schema("{\"type\" : [\"null\",\"string\"] }")
+        let schema = try! Schema(json: "{\"type\" : [\"null\",\"string\"] }")
         if let avroValue = try? AvroValue(binaryData: avroBytes, as: schema) {
             XCTAssertEqual(avroValue.string, "a", "Unexpected string value.")
         } else {

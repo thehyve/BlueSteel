@@ -27,13 +27,12 @@ open class BinaryAvroSerializer: AvroSerializer {
     }
     
     open func encodeInt(_ value: Int32) {
-        let encoded = Varint(fromValue: UInt64(toZigZag: Int64(value)))
-        data.append(contentsOf: encoded.backing)
+        encodeLong(Int64(value))
     }
     
     open func encodeLong(_ value: Int64) {
-        let encoded = Varint(fromValue: UInt64(toZigZag: value))
-        data.append(contentsOf: encoded.backing)
+        let varInt = ZigZagInt(value: value)
+        data.append(contentsOf: varInt.data)
     }
     
     open func encodeFloat(_ value: Float) {

@@ -9,16 +9,20 @@
 import Foundation
 
 open class JsonAvroDecoder : AvroDecoder {
-    public init() {
-        
+    public init() {        
     }
+
     public func decode(_ data: Data, as schema: Schema) throws -> AvroValue {
         let rawValue = try JSONSerialization.jsonObject(with: data, options: [.allowFragments])
-        let decodedValue = try decode(any: rawValue, as: schema)
-        return try AvroValue(value: decodedValue, as: schema)
+        return try decode(any: rawValue, as: schema)
     }
     
-    public func decode(any: Any, as schema: Schema) throws -> AvroValueConvertible {
+    public func decode(any value: Any, as schema: Schema) throws -> AvroValue {
+        let convertible = try decodeToConvertible(any: value, as: schema)
+        return try AvroValue(value: convertible, as: schema)
+    }
+    
+    private func decodeToConvertible(any: Any, as schema: Schema) throws -> AvroValueConvertible {
         switch any {
         case let result as NSNull:
             return result
@@ -26,7 +30,7 @@ open class JsonAvroDecoder : AvroDecoder {
             return result
         case let result as String:
             switch schema {
-            case .avroBytes, .avroFixed:
+            case .avroBytes, .avroFixed(_, _):
                 return Data(bytes: result.unicodeScalars.map { UInt8($0.value & 0xff) })
             default:
                 return result
@@ -66,7 +70,6 @@ open class JsonAvroDecoder : AvroDecoder {
                 for fSchema in fieldSchemas {
                     guard case .avroField(let fieldName, let subSchema, _) = fSchema else {
                         throw AvroCodingError.schemaMismatch
-                        
                     }
                     guard let value = result[fieldName] else { continue }
                     let decodedResult = try decode(any: value, as: subSchema)
@@ -127,18 +130,18 @@ open class BinaryAvroDecoderContext {
     
     open func decodeInt() -> Int32? {
         guard offset + 1 <= data.count,
-            let x = Varint(fromData: data.subdata(in: offset ..< min(offset + 4, data.count))),
+            let x = ZigZagInt(from: data.subdata(in: offset ..< min(offset + 4, data.count))),
             x.count > 0 else { return nil }
         offset += x.count
-        return Int32(fromZigZag: x.toUInt64())
+        return Int32(x.value)
     }
     
     open func decodeLong() -> Int64? {
         guard offset + 1 <= data.count,
-            let x = Varint(fromData: data.subdata(in: offset ..< min(offset + 8, data.count))),
+            let x = ZigZagInt(from: data.subdata(in: offset ..< min(offset + 8, data.count))),
             x.count > 0 else { return nil }
         offset += x.count
-        return Int64(fromZigZag: x.toUInt64())
+        return x.value
     }
     
     open func decodeBytes() -> Data? {

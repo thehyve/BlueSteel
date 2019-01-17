@@ -28,14 +28,9 @@ class AvroValueEncodingTests: XCTestCase {
         .avroField("d", .avroMap(.avroBytes), nil),
         .avroField("f", .avroString, nil),
         .avroField("g", .avroUnion([.avroString, .avroInt]), nil),
-        .avroField("h", .avroBytes, "\u{00ff}")
+        .avroField("h", .avroBytes, Data(bytes: [0xff]).toAvro()),
+        .avroField("i", .avroFloat, nil)
         ])
-
-    func testDataEncoding() {
-        for x in String(UnicodeScalar(255)).unicodeScalars {
-            XCTAssertEqual(x.value, 0xff)
-        }
-    }
     
     func testEnumEncoding() {
         let value: AvroValue = [
@@ -44,6 +39,7 @@ class AvroValueEncodingTests: XCTestCase {
             "d": ["e": "ab"],
             "f": "\na",
             "g": ["int": 2],
+            "i": 0.0,
         ]
 
         let encoder = GenericAvroEncoder(encoding: .binary)
@@ -62,6 +58,7 @@ class AvroValueEncodingTests: XCTestCase {
             0x4, 0xa, 0x61, // "\na
             0x2, 0x4, // union int, value 2
             0x2, 0xff, // default h
+            0x0, 0x0, 0x0, 0x0, // 0 float
             ]).hexEncodedString())
     }
     
@@ -72,6 +69,7 @@ class AvroValueEncodingTests: XCTestCase {
             "d": ["e": Data(bytes: [0xff])],
             "f": "\na\"\\",
             "g": ["int": 2],
+            "i": 5.0,
         ]
         
         let encoder = GenericAvroEncoder(encoding: .json)
@@ -80,7 +78,7 @@ class AvroValueEncodingTests: XCTestCase {
             XCTFail()
             return
         }
-        XCTAssertEqual(stringValue, "{\"a\":1,\"b\":\"opt1\",\"c\":1,\"d\":{\"e\":\"ÿ\"},\"f\":\"\\u000Aa\\\"\\\\\",\"g\":{\"int\":2},\"h\":\"ÿ\"}")
+        XCTAssertEqual(stringValue, "{\"a\":1,\"b\":\"opt1\",\"c\":1,\"d\":{\"e\":\"ÿ\"},\"f\":\"\\u000Aa\\\"\\\\\",\"g\":{\"int\":2},\"h\":\"ÿ\",\"i\":5.0}")
         
         let decoder = JsonAvroDecoder()
         let decodedValue = try! decoder.decode(encodedCorrectValue, as: schema)
