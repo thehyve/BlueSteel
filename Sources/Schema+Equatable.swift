@@ -8,6 +8,12 @@
 
 import Foundation
 
+extension Schema.Field: Equatable {
+    public static func ==(lhs: Schema.Field, rhs: Schema.Field) -> Bool {
+        return lhs.name == rhs.name && lhs.schema == rhs.schema && lhs.defaultValue == rhs.defaultValue
+    }
+}
+
 extension Schema: Equatable {
     public static func ==(lhs: Schema, rhs: Schema) -> Bool {
         switch (lhs, rhs) {
@@ -26,8 +32,6 @@ extension Schema: Equatable {
             return lschema == rschema
         case (.avroRecord(let lname, let lschema), .avroRecord(let rname, let rschema)):
             return lname == rname && lschema == rschema
-        case (.avroField(let lname, let lschema, let ldefault), .avroField(let rname, let rschema, let rdefault)):
-            return lname == rname && lschema == rschema && ldefault == rdefault
         case (.avroUnion(let lschemas), .avroUnion(let rschemas)):
             return lschemas == rschemas
         case (.avroEnum(let lname, let lsymbols), .avroEnum(let rname, let rsymbols)):
@@ -37,6 +41,18 @@ extension Schema: Equatable {
         default:
             return false
         }
+    }
+}
+
+extension Schema.Field: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
+        hasher.combine(schema)
+    }
+
+    public func hash(into hasher: inout Hasher, excludingTypes: inout Set<String>) {
+        hasher.combine(name)
+        schema.hash(into: &hasher, excludingTypes: &excludingTypes)
     }
 }
 
@@ -67,29 +83,6 @@ extension Schema: Hashable {
                 for field in fields {
                     field.hash(into: &hasher, excludingTypes: &excludingTypes)
                 }
-            }
-        case .avroField(let name, let schema, let fieldDefault):
-            hasher.combine(10)
-            hasher.combine(name)
-            schema.hash(into: &hasher, excludingTypes: &excludingTypes)
-            if let fieldDefault = fieldDefault {
-                switch fieldDefault {
-                case .avroNull:
-                    hasher.combine(1)
-                case .avroLong(let value):
-                    hasher.combine(2)
-                    hasher.combine(value)
-                case .avroDouble(let value):
-                    hasher.combine(3)
-                    hasher.combine(value)
-                case .avroString(let value):
-                    hasher.combine(4)
-                    hasher.combine(value)
-                default:
-                    hasher.combine(5)
-                }
-            } else {
-                hasher.combine(0)
             }
         case .avroEnum(let name, let symbols):
             hasher.combine(11)

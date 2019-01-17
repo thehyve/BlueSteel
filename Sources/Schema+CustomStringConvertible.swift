@@ -20,13 +20,15 @@ extension Schema: CustomStringConvertible {
         case .avroEnum(let name, let symbols):
             return "\(name)<enum>(\(symbols))"
         case .avroRecord(let name, let fields):
-            return "\(name)<record>(\(fields))"
-        case .avroField(let name, let schema, let fieldDefault):
-            if let fieldDefault = fieldDefault {
-                return "\(name): \(schema) (default: \(fieldDefault))"
-            } else {
-                return "\(name): \(schema)"
-            }
+            let fieldsString = fields.map { field in
+                if let defaultValue = field.defaultValue {
+                    return "\(field.name): \(field.schema) (default: \(defaultValue))" as String
+                } else {
+                    return "\(field.name): \(field.schema)" as String
+                }
+            }.joined(separator: ", ")
+            return "\(name)<record>([\(fieldsString)])"
+
         case .avroUnion(let subSchemas):
             return "\(subSchemas)"
         default:

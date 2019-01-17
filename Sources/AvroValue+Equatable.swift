@@ -52,12 +52,11 @@ extension AvroValue: Equatable {
 
         case (.avroRecord(.avroRecord(let lname, let lfieldSchemas), let lvalues), .avroRecord(.avroRecord(let rname, let rfieldSchemas), let rvalues)):
             guard lname == rname, lfieldSchemas == rfieldSchemas else { return false }
-            for fieldSchema in lfieldSchemas {
-                guard case .avroField(let fieldName, let innerSchema, _) = fieldSchema,
-                    let lvalue = lvalues[fieldName],
-                    let rvalue = rvalues[fieldName],
-                    let lAvroValue = try? AvroValue(value: lvalue, as: innerSchema),
-                    let rAvroValue = try? AvroValue(value: rvalue, as: innerSchema),
+            for field in lfieldSchemas {
+                guard let lvalue = lvalues[field.name],
+                    let rvalue = rvalues[field.name],
+                    let lAvroValue = try? AvroValue(value: lvalue, as: field.schema),
+                    let rAvroValue = try? AvroValue(value: rvalue, as: field.schema),
                     lAvroValue == rAvroValue else {
                         return false
                 }

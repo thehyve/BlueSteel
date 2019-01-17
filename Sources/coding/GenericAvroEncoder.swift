@@ -90,17 +90,14 @@ open class GenericAvroEncoder: AvroEncoder {
         case .avroRecord(.avroRecord(_, let fieldSchemas), let pairs):
             serializer.encodeRecordStart()
             var first = true
-            for fSchema in fieldSchemas {
+            for field in fieldSchemas {
                 if first {
                     first = false
                 } else {
                     serializer.encodeSeparator()
                 }
-                guard case .avroField(let key, _, _) = fSchema else {
-                    throw AvroCodingError.schemaMismatch
-                }
-                serializer.encodeFieldName(key)
-                try encode(pairs[key] as! AvroValue, serializer: serializer)
+                serializer.encodeFieldName(field.name)
+                try encode(pairs[field.name] as! AvroValue, serializer: serializer)
             }
             serializer.encodeRecordEnd()
 

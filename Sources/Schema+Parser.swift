@@ -88,12 +88,11 @@ extension Schema {
 
                     case .aMap :
                         let schema = try parse(json, typeKey: "values", namespace: schemaNamespace)
+                        return .avroMap(values: schema)
 
-                        return .avroMap(schema)
                     case .aArray :
                         let schema = try parse(json, typeKey: "items", namespace: schemaNamespace)
-
-                        return .avroArray(schema)
+                        return .avroArray(items: schema)
 
                     case .aRecord :
                         // Records must be named
@@ -105,25 +104,20 @@ extension Schema {
                         guard let fields = json["fields"] as? [[String: Any]] else {
                             throw SchemaCodingError.missingField("record fields")
                         }
-                        var recordFields: [Schema] = []
-
-                        for field in fields {
+                        let recordFields: [Field] = try fields.map { field in
                             guard let fieldName = field["name"] as? String else {
                                 throw SchemaCodingError.missingField("field name")
                             }
                             let schema = try parse(field, typeKey: "type", namespace: schemaNamespace)
-
-                            let fieldDefault: AvroValue?
+                            var recordField = Field(name: fieldName, schema: schema)
                             if let fieldDefaultValue = field["default"] {
                                 let decoder = JsonAvroDecoder()
-                                fieldDefault = try? decoder.decode(any: fieldDefaultValue, as: schema)
-                            } else {
-                                fieldDefault = nil
+                                recordField.defaultValue = try? decoder.decode(any: fieldDefaultValue, as: schema)
                             }
 
-                            recordFields.append(.avroField(fieldName, schema, fieldDefault))
+                            return recordField
                         }
-                        let result = Schema.avroRecord(fullRecordName, recordFields)
+                        let result = Schema.avroRecord(name: fullRecordName, fields: recordFields)
                         namedTypes[fullRecordName] = result
                         return result
 
@@ -144,7 +138,7 @@ extension Schema {
 
                         let fullEnumName = Schema.assembleFullName(schemaNamespace, name: enumName)
 
-                        let result = Schema.avroEnum(fullEnumName, symbolStrings)
+                        let result = Schema.avroEnum(name: fullEnumName, symbols: symbolStrings)
                         namedTypes[fullEnumName] = result
                         return result
 
@@ -156,7 +150,7 @@ extension Schema {
                             throw SchemaCodingError.missingField("fixed size")
                         }
                         let fullFixedName = Schema.assembleFullName(schemaNamespace, name: fixedName)
-                        let result = Schema.avroFixed(fullFixedName, size)
+                        let result = Schema.avroFixed(name: fullFixedName, size: size)
                         namedTypes[fullFixedName] = result
                         return result
                     }
@@ -175,20 +169,17 @@ extension Schema {
             }
             else if let unionSchema = json[key] as? [Any] {
                 // Union
-                var schemas: [Schema] = []
-                for def in unionSchema {
-                    let subSchema: Schema
+                let schemas: [Schema] = try unionSchema.map { def in
                     switch def {
                     case let value as String:
-                        subSchema = try parse(["type": value], typeKey: "type", namespace: schemaNamespace)
+                        return try parse(["type": value], typeKey: "type", namespace: schemaNamespace)
                     case let value as [String: Any]:
-                        subSchema = try parse(value, typeKey: "type", namespace: schemaNamespace)
+                        return try parse(value, typeKey: "type", namespace: schemaNamespace)
                     default:
                         throw SchemaCodingError.typeMismatch
                     }
-                    schemas.append(subSchema)
                 }
-                return .avroUnion(schemas)
+                return .avroUnion(options: schemas)
             } else {
                 throw SchemaCodingError.typeMismatch
             }

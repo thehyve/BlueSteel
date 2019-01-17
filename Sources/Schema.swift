@@ -20,15 +20,14 @@ public enum Schema {
     case avroString
     case avroBytes
 
-    indirect case avroArray(Schema)
-    indirect case avroMap(Schema)
-    case avroUnion(Array<Schema>)
+    indirect case avroArray(items: Schema)
+    indirect case avroMap(values: Schema)
+    case avroUnion(options: [Schema])
 
     // Named Types
-    case avroFixed(String, Int)
-    case avroEnum(String, Array<String>)
-    case avroRecord(String, Array<Schema>)
-    indirect case avroField(String, Schema, AvroValue?)
+    case avroFixed(name: String, size: Int)
+    case avroEnum(name: String, symbols: [String])
+    case avroRecord(name: String, fields: [Field])
 
     static func assembleFullName(_ namespace:String?, name: String) -> String {
         if name.range(of: ".") == nil, let namespace = namespace {
@@ -75,8 +74,7 @@ public enum Schema {
             return "array"
         case .avroFixed(let name, _),
              .avroEnum(let name, _),
-             .avroRecord(let name, _),
-             .avroField(let name, _, _):
+             .avroRecord(let name, _):
             return name
         case .avroLong:
             return "long"
@@ -84,6 +82,18 @@ public enum Schema {
             return "union"
         case .avroUnknown:
             return "unknown"
+        }
+    }
+
+    public struct Field {
+        let name: String
+        let schema: Schema
+        var defaultValue: AvroValue? = nil
+
+        public init(name: String, schema: Schema, defaultValue: AvroValue? = nil) {
+            self.name = name
+            self.schema = schema
+            self.defaultValue = defaultValue
         }
     }
 }

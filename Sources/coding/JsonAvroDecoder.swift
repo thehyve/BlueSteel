@@ -67,15 +67,13 @@ open class JsonAvroDecoder : AvroDecoder {
             case .avroRecord(_, let fieldSchemas):
                 var avroValues: [String: AvroValueConvertible] = [:]
                 avroValues.reserveCapacity(result.count)
-                for fSchema in fieldSchemas {
-                    guard case .avroField(let fieldName, let subSchema, _) = fSchema else {
-                        throw AvroCodingError.schemaMismatch
-                    }
-                    guard let value = result[fieldName] else { continue }
-                    let decodedResult = try decode(any: value, as: subSchema)
-                    avroValues[fieldName] = decodedResult
+                for field in fieldSchemas {
+                    guard let value = result[field.name] else { continue }
+                    avroValues[field.name] = try decode(any: value, as: field.schema)
                 }
                 return avroValues
+            default:
+                throw AvroCodingError.schemaMismatch
             }
         default:
             throw AvroCodingError.schemaMismatch

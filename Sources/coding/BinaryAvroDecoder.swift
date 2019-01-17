@@ -103,10 +103,7 @@ open class BinaryAvroDecoder : AvroDecoder {
         case .avroRecord(_, let fields) :
             var pairs: [String: AvroValue] = [:]
             for field in fields {
-                guard case .avroField(let key, let fieldSchema, _) = field else {
-                    throw AvroCodingError.schemaMismatch
-                }
-                pairs[key] = try decode(with: deserializer, as: fieldSchema)
+                pairs[field.name] = try decode(with: deserializer, as: field.schema)
             }
             return .avroRecord(schema, pairs)
 

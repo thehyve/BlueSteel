@@ -10,6 +10,15 @@ import Foundation
 
 public protocol AvroValueConvertible {
     func toAvro() -> AvroValue
+
+}
+
+public enum AvroConversionError: Error {
+    case invalid
+    case conversionFailed
+    case mismatch
+    case enumSymbolNotFound(String, symbols: [String])
+    case fieldNotFound(String)
 }
 
 extension String: AvroValueConvertible {
@@ -119,12 +128,12 @@ extension AvroValue: AvroValueConvertible {
 
         case (.avroFloat(let inner), .avroFloat):
             guard !inner.isNaN && !inner.isInfinite else {
-                throw SchemaError.invalid
+                throw AvroConversionError.invalid
             }
             self = avroValue
         case (.avroFloat(let inner), .avroDouble):
             guard !inner.isNaN && !inner.isInfinite else {
-                throw SchemaError.invalid
+                throw AvroConversionError.invalid
             }
             self = .avroDouble(Double(inner))
         case (.avroFloat(let inner), .avroInt):
@@ -134,14 +143,14 @@ extension AvroValue: AvroValueConvertible {
 
         case (.avroDouble(let inner), .avroDouble):
             guard !inner.isNaN && !inner.isInfinite else {
-                throw SchemaError.invalid
+                throw AvroConversionError.invalid
             }
             self = avroValue
         case (.avroDouble(let inner), .avroInt):
             self = .avroInt(Int32(inner))
         case (.avroDouble(let inner), .avroFloat):
             guard !inner.isNaN && !inner.isInfinite else {
-                throw SchemaError.invalid
+                throw AvroConversionError.invalid
             }
             self = .avroFloat(Float(inner))
         case (.avroDouble(let inner), .avroLong):
@@ -149,36 +158,36 @@ extension AvroValue: AvroValueConvertible {
 
         case (.avroString(let inner), .avroBytes):
             guard let data = AvroValue.stringToBytes(string: inner) else {
-                throw SchemaError.conversionFailed
+                throw AvroConversionError.conversionFailed
             }
             self = .avroBytes(data)
         case (.avroBytes(let inner), .avroString):
             guard let newValue = AvroValue.bytesToString(data: inner) else {
-                throw SchemaError.conversionFailed
+                throw AvroConversionError.conversionFailed
             }
             self = .avroString(newValue)
 
         case (.avroFixed(_, let inner), .avroFixed(_, let count)):
             guard inner.count == count else {
-                throw SchemaError.invalid
+                throw AvroConversionError.invalid
             }
             self = .avroFixed(schema, inner)
         case (.avroFixed(_, let inner), .avroBytes):
             self = .avroBytes(inner)
         case (.avroFixed(_, let inner), .avroString):
             guard let newValue = AvroValue.bytesToString(data: inner) else {
-                throw SchemaError.conversionFailed
+                throw AvroConversionError.conversionFailed
             }
             self = .avroString(newValue)
 
         case (.avroBytes(let value), .avroFixed(_, let count)):
             guard count == value.count else {
-                throw SchemaError.conversionFailed
+                throw AvroConversionError.conversionFailed
             }
             self = .avroFixed(schema, value)
         case (.avroString(let inner), .avroFixed(_, let count)):
             guard let data = AvroValue.stringToBytes(string: inner), data.count == count else {
-                throw SchemaError.conversionFailed
+                throw AvroConversionError.conversionFailed
             }
             self = .avroFixed(schema, data)
 
@@ -196,13 +205,13 @@ extension AvroValue: AvroValueConvertible {
                 self = .avroEnum(schema, index: index, value)
             } else {
                 guard let newIndex = symbols.firstIndex(of: value) else {
-                    throw SchemaError.enumSymbolNotFound(value, symbols: symbols)
+                    throw AvroConversionError.enumSymbolNotFound(value, symbols: symbols)
                 }
                 self = .avroEnum(schema, index: newIndex, value)
             }
         case (.avroString(let value), .avroEnum(_, let symbols)):
             guard let newIndex = symbols.firstIndex(of: value) else {
-                throw SchemaError.enumSymbolNotFound(value, symbols: symbols)
+                throw AvroConversionError.enumSymbolNotFound(value, symbols: symbols)
             }
             self = .avroEnum(schema, index: newIndex, value)
         case (.avroEnum(_, _, let value), .avroString):
@@ -211,17 +220,13 @@ extension AvroValue: AvroValueConvertible {
         case (.avroRecord(_, let fields), .avroRecord(_, let subSchemas)),
              (.avroMap(_, let fields), .avroRecord(_, let subSchemas)):
             var newValue: [String: AvroValueConvertible] = [:]
-            for subSchema in subSchemas {
-                guard case .avroField(let fieldName, let fieldSchema, let fieldDefault) = subSchema else {
-                    throw SchemaError.invalid
-                }
-
-                if let fieldValue = fields[fieldName] {
-                    newValue[fieldName] = try AvroValue(value: fieldValue, as: fieldSchema)
-                } else if let fieldDefault = fieldDefault {
-                    newValue[fieldName] = try AvroValue(value: fieldDefault, as: fieldSchema)
+            for field in subSchemas {
+                if let fieldValue = fields[field.name] {
+                    newValue[field.name] = try AvroValue(value: fieldValue, as: field.schema)
+                } else if let fieldDefault = field.defaultValue {
+                    newValue[field.name] = try AvroValue(value: fieldDefault, as: field.schema)
                 } else {
-                    throw SchemaError.fieldNotFound(fieldName)
+                    throw AvroConversionError.fieldNotFound(field.name)
                 }
             }
             self = .avroRecord(schema, newValue)
@@ -254,7 +259,7 @@ extension AvroValue: AvroValueConvertible {
                 newIndex = index
             } else {
                 guard let index = subSchemas.firstIndex(where: { $0.typeName == "map" }) else {
-                    throw SchemaError.mismatch
+                    throw AvroConversionError.mismatch
                 }
                 newIndex = index
                 newValue = avroValue
@@ -276,11 +281,11 @@ extension AvroValue: AvroValueConvertible {
                     }
                 }
                 // cannot convert to any of the schemas
-                throw SchemaError.mismatch
+                throw AvroConversionError.mismatch
             }
 
         default:
-            throw SchemaError.mismatch
+            throw AvroConversionError.mismatch
         }
     }
 

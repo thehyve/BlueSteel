@@ -9,14 +9,6 @@
 import Foundation
 
 public enum AvroValue {
-    public enum SchemaError: Error {
-        case invalid
-        case conversionFailed
-        case mismatch
-        case enumSymbolNotFound(String, symbols: [String])
-        case fieldNotFound(String)
-    }
-
     // Primitives
     case avroNull
     case avroBoolean(Bool)
@@ -28,10 +20,10 @@ public enum AvroValue {
     case avroString(String)
 
     // Complex Types
-    indirect case avroArray(itemSchema: Schema, [AvroValueConvertible])
-    indirect case avroMap(valueSchema: Schema, [String: AvroValueConvertible])
+    case avroArray(itemSchema: Schema, [AvroValueConvertible])
+    case avroMap(valueSchema: Schema, [String: AvroValueConvertible])
     indirect case avroUnion(schemaOptions: [Schema], index: Int, AvroValueConvertible)
-    indirect case avroRecord(Schema, [String: AvroValueConvertible])
+    case avroRecord(Schema, [String: AvroValueConvertible])
     case avroEnum(Schema, index: Int, String)
     case avroFixed(Schema, Data)
 
@@ -55,11 +47,11 @@ public enum AvroValue {
             return .avroString
         // Complex Types
         case .avroArray(let itemSchema, _):
-            return .avroArray(itemSchema)
+            return .avroArray(items: itemSchema)
         case .avroMap(let valueSchema, _):
-            return .avroMap(valueSchema)
+            return .avroMap(values: valueSchema)
         case .avroUnion(let schemaOptions, _, _):
-            return .avroUnion(schemaOptions)
+            return .avroUnion(options: schemaOptions)
         case .avroRecord(let innerSchema, _):
             return innerSchema
         case .avroEnum(let innerSchema, _, _):

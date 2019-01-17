@@ -57,8 +57,22 @@ extension Schema {
 
             case .avroRecord(let name, let fields) :
                 if existingTypes.insert(name).inserted {
-                    let fieldString = try fields.map { try jsonString($0) }.joined(separator: ",")
-                    return "{\"name\":\"\(name)\",\"type\":\"record\",\"fields\":[\(fieldString)]}"
+                    let fieldsString = try fields.map { field in
+                        let fieldSchemaString = try jsonString(field.schema)
+                        let defaultValueString: String
+                        if let defaultValue = field.defaultValue {
+                            let avroData = try AvroValue(value: defaultValue, as: field.schema).encode(encoding: .json)
+                            guard let encodedValue = String(data: avroData, encoding: .utf8) else {
+                                throw SchemaCodingError.unknownEncoding
+                            }
+                            defaultValueString = ",\"default\":\(encodedValue)"
+                        } else {
+                            defaultValueString = ""
+                        }
+
+                        return "{\"name\":\"\(field.name)\",\"type\":\(fieldSchemaString)\(defaultValueString)}"
+                        }.joined(separator: ",")
+                    return "{\"name\":\"\(name)\",\"type\":\"record\",\"fields\":[\(fieldsString)]}"
                 } else {
                     return "\"\(name)\""
                 }
@@ -73,21 +87,6 @@ extension Schema {
             case .avroUnion(let unionSchemas) :
                 let unionString = try unionSchemas.map { try jsonString($0) }.joined(separator: ",")
                 return "[\(unionString)]"
-
-            case .avroField(let fieldName, let fieldType, let fieldDefault) :
-                let fieldTypeString = try jsonString(fieldType)
-                let fieldDefaultString: String
-                if let fieldDefault = fieldDefault {
-                    let avroData = try AvroValue(value: fieldDefault, as: fieldType).encode(encoding: .json)
-                    guard let encodedValue = String(data: avroData, encoding: .utf8) else {
-                        throw SchemaCodingError.unknownEncoding
-                    }
-                    fieldDefaultString = ",\"default\":\(encodedValue)"
-                } else {
-                    fieldDefaultString = ""
-                }
-
-                return "{\"name\":\"\(fieldName)\",\"type\":\(fieldTypeString)\(fieldDefaultString)}"
 
             case .avroUnknown:
                 throw SchemaCodingError.unknownType("unknown")

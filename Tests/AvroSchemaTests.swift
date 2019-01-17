@@ -126,7 +126,7 @@ class AvroSchemaTests: XCTestCase {
                 { "type" : "map", "values" : "double" }
             ]}
             """)
-        let expected: [Schema] = [.avroMap(.avroInt), .avroMap(.avroDouble)]
+        let expected: [Schema] = [.avroMap(values: .avroInt), .avroMap(values: .avroDouble)]
 
         guard case .avroUnion(let subSchemas) = schema else {
             XCTFail()
@@ -150,12 +150,13 @@ class AvroSchemaTests: XCTestCase {
                 ]
             }
             """)
-        let expectedFields: [Schema] = [
-            .avroField("lookId", .avroLong, nil),
-            .avroField("productId", .avroLong, nil),
-            .avroField("quantity", .avroInt, nil),
-            .avroField("saleId", .avroUnion([.avroNull, .avroLong]), .avroUnion(schemaOptions: [.avroNull, .avroLong], index: 0, AvroValue.avroNull)),
-            .avroField("skuId", .avroLong, nil),
+        let expectedFields: [Schema.Field] = [
+            Schema.Field(name: "lookId", schema: .avroLong),
+            Schema.Field(name: "productId", schema: .avroLong),
+            Schema.Field(name: "quantity", schema: .avroInt),
+            Schema.Field(name: "saleId", schema: .avroUnion(options: [.avroNull, .avroLong]),
+                         defaultValue: .avroUnion(schemaOptions: [.avroNull, .avroLong], index: 0, AvroValue.avroNull)),
+            Schema.Field(name: "skuId", schema: .avroLong),
         ]
 
         guard case .avroRecord("AddToCartActionEvent", let fields) = schema else {
@@ -319,15 +320,15 @@ class AvroSchemaTests: XCTestCase {
     }
 
     func testSchemaParsing() {
-        let schema: Schema = .avroRecord("A", [
-            .avroField("a", .avroInt, nil),
-            .avroField("b", .avroEnum("B", ["opt1", "opt2"]), nil),
-            .avroField("c", .avroLong, .avroLong(1)),
-            .avroField("d", .avroMap(.avroBytes), nil),
-            .avroField("f", .avroString, nil),
-            .avroField("g", .avroUnion([.avroString, .avroInt]), nil),
-            .avroField("h", .avroBytes, Data(bytes: [0xff]).toAvro()),
-            .avroField("i", .avroFloat, nil)
+        let schema: Schema = .avroRecord(name: "A", fields: [
+            Schema.Field(name: "a", schema: .avroInt),
+            Schema.Field(name: "b", schema: .avroEnum(name: "B", symbols: ["opt1", "opt2"])),
+            Schema.Field(name: "c", schema: .avroLong, defaultValue: .avroLong(1)),
+            Schema.Field(name: "d", schema: .avroMap(values: .avroBytes)),
+            Schema.Field(name: "f", schema: .avroString),
+            Schema.Field(name: "g", schema: .avroUnion(options: [.avroString, .avroInt])),
+            Schema.Field(name: "h", schema: .avroBytes, defaultValue: Data(bytes: [0xff]).toAvro()),
+            Schema.Field(name: "i", schema: .avroFloat)
             ])
 
         let jsonString1 = """

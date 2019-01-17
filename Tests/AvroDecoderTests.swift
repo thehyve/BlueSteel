@@ -23,9 +23,9 @@ class AvroDecoderTests: XCTestCase {
 
     func testDecodeInt() {
         let data = Data(bytes: [0x4, 0x96, 0xde, 0x87, 0x3, 0xcd, 0xcc, 0x4c, 0x40, 0x96, 0xde, 0x87, 0x3])
-        let schema: Schema = .avroRecord("test", [
-            .avroField("x", .avroInt, nil),
-            .avroField("y", .avroInt, nil),
+        let schema: Schema = .avroRecord(name: "test", fields: [
+            Schema.Field(name: "x", schema: .avroInt),
+            Schema.Field(name: "y", schema: .avroInt),
         ])
         let avroValue = try! decoder.decode(data, as: schema)
         guard let fields = avroValue.map else {
