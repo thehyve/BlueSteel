@@ -47,7 +47,8 @@ extension AvroValue: CustomStringConvertible {
             return "union([\(typeNames)][\(index)]: \(value))"
 
         case .avroRecord(.avroRecord(let name, _), let values):
-            return "\(name)<record>(\(values))"
+            let fields = values.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
+            return "\(name)<record>([\(fields)]))"
 
         case .avroEnum(.avroEnum(let name, let symbols), let index, let value):
             return "\(name)<enum>([\(symbols.joined(separator: ", "))][\(index)]: \(value))"
