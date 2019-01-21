@@ -119,22 +119,6 @@ class AvroSchemaTests: XCTestCase {
         self.testSchemaEquality(lJsonSchema, s2: rJsonSchema)
     }
 
-    func testUnionMap() {
-        let schema = try! Schema(json: """
-            { "type" : [
-                { "type" : "map", "values" : "int" },
-                { "type" : "map", "values" : "double" }
-            ]}
-            """)
-        let expected: [Schema] = [.avroMap(values: .avroInt), .avroMap(values: .avroDouble)]
-
-        guard case .avroUnion(let subSchemas) = schema else {
-            XCTFail()
-            return
-        }
-        XCTAssertEqual(expected, subSchemas)
-    }
-
     func testRecord() {
         let schema = try! Schema(json: """
             {

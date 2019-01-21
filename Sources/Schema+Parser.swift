@@ -45,7 +45,9 @@ extension Schema {
                 throw SchemaCodingError.notAnObject
             }
 
-            return try parse(jsonObject, typeKey:"type", context: AvroCodingContext())
+            let result = try parse(jsonObject, typeKey:"type", context: AvroCodingContext())
+            try result.validate()
+            return result
         }
 
         public mutating func parse(_ json: String) throws -> Schema {
