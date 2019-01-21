@@ -43,17 +43,17 @@ extension AvroValue: CustomStringConvertible {
             return "\(values)"
 
         case .avroUnion(let schemaOptions, let index, let value):
-            let typeNames = schemaOptions.map { $0.typeName }
-            return "union(\(typeNames)[\(index)]: \(value))"
+            let typeNames = schemaOptions.map { $0.typeName }.joined(separator: ", ")
+            return "union([\(typeNames)][\(index)]: \(value))"
 
         case .avroRecord(.avroRecord(let name, _), let values):
-            return "record<\(name)>(\(values))"
+            return "\(name)<record>(\(values))"
 
         case .avroEnum(.avroEnum(let name, let symbols), let index, let value):
-            return "enum<\(name)>(\(symbols)[\(index)]: \(value))"
+            return "\(name)<enum>([\(symbols.joined(separator: ", "))][\(index)]: \(value))"
 
         case .avroFixed(.avroFixed(let name, _), let value):
-            return "fixed<\(name)>(\(value))"
+            return "\(name)<fixed>(\(value))"
 
         default:
             return "unknown"

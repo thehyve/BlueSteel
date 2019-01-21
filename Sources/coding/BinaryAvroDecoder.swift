@@ -8,6 +8,7 @@
 
 import Foundation
 
+/// Decoder for the binary Avro encoding.
 open class BinaryAvroDecoder : AvroDecoder {
     public init() {
     }

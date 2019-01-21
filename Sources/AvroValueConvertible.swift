@@ -8,15 +8,22 @@
 
 import Foundation
 
+/// Value that is convertable to avro
 public protocol AvroValueConvertible {
+    /// Converts data to Avro. Without any schema information, this may
+    /// yield an invalid Avro value. To ensure the Avro value validates
+    /// against an intended schema, call AvroValue.init(value:as:).
+    ///
+    /// - Returns: an Avro value with a possibly invalid schema
     func toAvro() -> AvroValue
-
 }
 
 public enum AvroConversionError: Error {
     case invalid
+    case invalidDouble(Double)
+    case invalidFixedCount(expected: Int, actual: Int)
     case conversionFailed
-    case mismatch
+    case mismatch(AvroValue, Schema)
     case enumSymbolNotFound(String, symbols: [String])
     case fieldNotFound(String)
 }
@@ -88,18 +95,66 @@ extension NSNull: AvroValueConvertible {
 }
 
 extension AvroValue: AvroValueConvertible {
+    static let validNameExpression = try! NSRegularExpression(pattern: "^[A-Za-z_][A-Za-z0-9_]*$")
+
     public func toAvro() -> AvroValue {
         return self
     }
 
-    private static func bytesToString(data: Data) -> String? {
-        return String(data: data, encoding: .utf8)
+    private static func bytesToString(data: Data) throws -> String {
+        guard let result = String(data: data, encoding: .utf8) else {
+            throw AvroConversionError.conversionFailed
+        }
+        return result
     }
 
-    private static func stringToBytes(string: String) -> Data? {
-        return string.data(using: .utf8, allowLossyConversion: false)
+    private static func stringToBytes(string: String) throws -> Data {
+        guard let result = string.data(using: .utf8, allowLossyConversion: false) else {
+            throw AvroConversionError.conversionFailed
+        }
+        return result
     }
 
+    static func validate(double: Double) throws {
+        guard !double.isNaN && !double.isInfinite else {
+            throw AvroConversionError.invalidDouble(double)
+        }
+    }
+
+    static func validate(fixed data: Data, size: Int) throws {
+        guard data.count == size else {
+            throw AvroConversionError.invalidFixedCount(expected: size, actual: data.count)
+        }
+    }
+
+    /// Converts given value to Avro using a schema. This conversion
+    /// also checks the metadata of the schema, so the resulting value
+    /// is completely valid and conforming to given schema. For example,
+    /// union and enum values indexes are checked, the size of a fixed
+    /// value, and the item schema of an array.
+    ///
+    /// The following conversions and validations are applied:
+    /// - Numeric values are all converted.
+    /// - Floating point numbers with infinite or NaN values are rejected.
+    /// - Bytes and fixed are converted to String and vice-versa using
+    ///   UTF-8 encoding.
+    /// - Maps and records are converted to each other if possible. Missing
+    ///   fields of a record are attempted to be filled with default values,
+    ///   if any.
+    /// - Enums are interchangable with strings.
+    /// - The index of an enum is disregarded, only the value is taken to
+    ///   correspond to one of the enum symbols.
+    /// - A map with a single value, with the key corresponding to one of
+    ///   the type names in a union, is converted to a value in that union.
+    /// - Other values can be converted from or to a union using the first
+    ///   schema that they match. First, a match is attempted using only
+    ///   the type name, then a match is attempted by converting the value
+    ///   to one of the union options.
+    ///
+    /// - Returns: fully instantiated AvroValue with a valid schema
+    /// - Throws: `AvroConversionError` if the value cannot be converted
+    ///           to given schema or if the given schema is invalid.
+    ///
     public init(value: AvroValueConvertible, as schema: Schema) throws {
         let avroValue = value.toAvro()
 
@@ -127,14 +182,10 @@ extension AvroValue: AvroValueConvertible {
             self = .avroInt(Int32(inner))
 
         case (.avroFloat(let inner), .avroFloat):
-            guard !inner.isNaN && !inner.isInfinite else {
-                throw AvroConversionError.invalid
-            }
+            try AvroValue.validate(double: Double(inner))
             self = avroValue
         case (.avroFloat(let inner), .avroDouble):
-            guard !inner.isNaN && !inner.isInfinite else {
-                throw AvroConversionError.invalid
-            }
+            try AvroValue.validate(double: Double(inner))
             self = .avroDouble(Double(inner))
         case (.avroFloat(let inner), .avroInt):
             self = .avroInt(Int32(inner))
@@ -142,53 +193,38 @@ extension AvroValue: AvroValueConvertible {
             self = .avroLong(Int64(inner))
 
         case (.avroDouble(let inner), .avroDouble):
-            guard !inner.isNaN && !inner.isInfinite else {
-                throw AvroConversionError.invalid
-            }
+            try AvroValue.validate(double: inner)
             self = avroValue
         case (.avroDouble(let inner), .avroInt):
             self = .avroInt(Int32(inner))
         case (.avroDouble(let inner), .avroFloat):
-            guard !inner.isNaN && !inner.isInfinite else {
-                throw AvroConversionError.invalid
-            }
+            try AvroValue.validate(double: inner)
             self = .avroFloat(Float(inner))
         case (.avroDouble(let inner), .avroLong):
             self = .avroLong(Int64(inner))
 
         case (.avroString(let inner), .avroBytes):
-            guard let data = AvroValue.stringToBytes(string: inner) else {
-                throw AvroConversionError.conversionFailed
-            }
+            let data = try  AvroValue.stringToBytes(string: inner)
             self = .avroBytes(data)
         case (.avroBytes(let inner), .avroString):
-            guard let newValue = AvroValue.bytesToString(data: inner) else {
-                throw AvroConversionError.conversionFailed
-            }
+            let newValue = try AvroValue.bytesToString(data: inner)
             self = .avroString(newValue)
 
         case (.avroFixed(_, let inner), .avroFixed(_, let count)):
-            guard inner.count == count else {
-                throw AvroConversionError.invalid
-            }
+            try AvroValue.validate(fixed: inner, size: count)
             self = .avroFixed(schema, inner)
         case (.avroFixed(_, let inner), .avroBytes):
             self = .avroBytes(inner)
         case (.avroFixed(_, let inner), .avroString):
-            guard let newValue = AvroValue.bytesToString(data: inner) else {
-                throw AvroConversionError.conversionFailed
-            }
+            let newValue = try AvroValue.bytesToString(data: inner)
             self = .avroString(newValue)
 
-        case (.avroBytes(let value), .avroFixed(_, let count)):
-            guard count == value.count else {
-                throw AvroConversionError.conversionFailed
-            }
-            self = .avroFixed(schema, value)
+        case (.avroBytes(let inner), .avroFixed(_, let count)):
+            try AvroValue.validate(fixed: inner, size: count)
+            self = .avroFixed(schema, inner)
         case (.avroString(let inner), .avroFixed(_, let count)):
-            guard let data = AvroValue.stringToBytes(string: inner), data.count == count else {
-                throw AvroConversionError.conversionFailed
-            }
+            let data = try AvroValue.stringToBytes(string: inner)
+            try AvroValue.validate(fixed: data, size: count)
             self = .avroFixed(schema, data)
 
         case (.avroArray(_, let values), .avroArray(let subSchema)):
@@ -201,14 +237,11 @@ extension AvroValue: AvroValueConvertible {
             self = .avroMap(valueSchema: subSchema, newValues)
 
         case (.avroEnum(_, let index, let value), .avroEnum(_, let symbols)):
-            if value == symbols[index] {
-                self = .avroEnum(schema, index: index, value)
-            } else {
-                guard let newIndex = symbols.firstIndex(of: value) else {
-                    throw AvroConversionError.enumSymbolNotFound(value, symbols: symbols)
-                }
-                self = .avroEnum(schema, index: newIndex, value)
+            guard value == symbols[index] else {
+                self = try AvroValue(value: AvroValue.avroString(value), as: schema)
+                return
             }
+            self = .avroEnum(schema, index: index, value)
         case (.avroString(let value), .avroEnum(_, let symbols)):
             guard let newIndex = symbols.firstIndex(of: value) else {
                 throw AvroConversionError.enumSymbolNotFound(value, symbols: symbols)
@@ -259,7 +292,7 @@ extension AvroValue: AvroValueConvertible {
                 newIndex = index
             } else {
                 guard let index = subSchemas.firstIndex(where: { $0.typeName == "map" }) else {
-                    throw AvroConversionError.mismatch
+                    throw AvroConversionError.mismatch(avroValue, schema)
                 }
                 newIndex = index
                 newValue = avroValue
@@ -281,11 +314,11 @@ extension AvroValue: AvroValueConvertible {
                     }
                 }
                 // cannot convert to any of the schemas
-                throw AvroConversionError.mismatch
+                throw AvroConversionError.mismatch(avroValue, schema)
             }
 
         default:
-            throw AvroConversionError.mismatch
+            throw AvroConversionError.mismatch(avroValue, schema)
         }
     }
 

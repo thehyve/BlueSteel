@@ -8,6 +8,11 @@
 
 import Foundation
 
+/// Avro value. Use the various initializers from literals
+/// for easy creation. Then make those values into valid
+/// Avro values by using `init(value:as:)`. To ensure that the
+/// resulting value is completely valid, also call
+/// `Schema.validate(context:)` on the provided schema in that call.
 public enum AvroValue {
     // Primitives
     case avroNull
@@ -27,6 +32,8 @@ public enum AvroValue {
     case avroEnum(Schema, index: Int, String)
     case avroFixed(Schema, Data)
 
+    /// Schema of the record. This schema may
+    /// be invalid until `AvroValue.init(value:as:)` is called.
     public var schema: Schema {
         switch self {
         case .avroNull:
@@ -61,6 +68,8 @@ public enum AvroValue {
         }
     }
 
+    /// Convert to an integer value if possible
+    /// - Returns: 32-bit integer or `nil` if conversion is not possible
     public var int: Int32? {
         guard let castValue = try? AvroValue(value: self, as: .avroInt), case .avroInt(let result) = castValue else {
             return nil
@@ -68,6 +77,8 @@ public enum AvroValue {
         return result
     }
 
+    /// Convert to an bool value if possible
+    /// - Returns: bool or `nil` if conversion is not possible
     public var boolean: Bool? {
         guard let castValue = try? AvroValue(value: self, as: .avroBoolean), case .avroBoolean(let result) = castValue else {
             return nil
@@ -75,6 +86,8 @@ public enum AvroValue {
         return result
     }
 
+    /// Convert to an string value if possible
+    /// - Returns: string or `nil` if conversion is not possible
     public var string: String? {
         guard let castValue = try? AvroValue(value: self, as: .avroString), case .avroString(let result) = castValue else {
             return nil
@@ -82,6 +95,8 @@ public enum AvroValue {
         return result
     }
 
+    /// Convert to an long value if possible
+    /// - Returns: 64-bit integer or `nil` if conversion is not possible
     public var long: Int64? {
         guard let castValue = try? AvroValue(value: self, as: .avroLong), case .avroLong(let result) = castValue else {
             return nil
@@ -89,6 +104,8 @@ public enum AvroValue {
         return result
     }
 
+    /// Convert to an float value if possible
+    /// - Returns: 32-bit float or `nil` if conversion is not possible
     public var float: Float? {
         guard let castValue = try? AvroValue(value: self, as: .avroFloat), case .avroFloat(let result) = castValue else {
             return nil
@@ -96,6 +113,8 @@ public enum AvroValue {
         return result
     }
 
+    /// Convert to an double value if possible.
+    /// - Returns: 64-bit double or `nil` if conversion is not possible
     public var double: Double? {
         guard let castValue = try? AvroValue(value: self, as: .avroDouble), case .avroDouble(let result) = castValue else {
             return nil
@@ -103,6 +122,8 @@ public enum AvroValue {
         return result
     }
 
+    /// Convert to bytes if possible.
+    /// - Returns: byte data or `nil` if conversion is not possible
     public var bytes: Data? {
         guard let castValue = try? AvroValue(value: self, as: .avroBytes), case .avroBytes(let result) = castValue else {
             return nil
@@ -110,6 +131,8 @@ public enum AvroValue {
         return result
     }
 
+    /// Convert to a map if possible.
+    /// - Returns: dicionary or `nil` if conversion is not possible
     public var map: [String: AvroValue]? {
         switch self {
         case .avroMap(_, let result),
@@ -124,6 +147,8 @@ public enum AvroValue {
         }
     }
 
+    /// Convert to an array if possible.
+    /// - Returns: array or `nil` if conversion is not possible
     public var array: [AvroValue]? {
         switch self {
         case .avroArray(_, let items):
@@ -137,6 +162,13 @@ public enum AvroValue {
         }
     }
 
+    /// Decodes data containing an Avro value using given schema.
+    /// - Parameters:
+    ///   - data: data where the Avro value is encoded
+    ///   - as: schema to decode the Avro value with
+    ///   - encoding: encoding that is used.
+    /// - Throws: a `AvroCodingError` if the data cannot be decoded or it does
+    ///           not match the schema.
     public init(data: Data, as schema: Schema, encoding: AvroEncoding = .binary) throws {
         let decoder: AvroDecoder
         switch encoding {

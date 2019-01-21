@@ -8,6 +8,7 @@
 
 import Foundation
 
+/// Generic Avro Encoder for both binary and JSON encodings.
 open class GenericAvroEncoder: AvroEncoder {
     let encoding: AvroEncoding
 
@@ -26,7 +27,7 @@ open class GenericAvroEncoder: AvroEncoder {
         }
 
         let avroValue = try AvroValue(value: value, as: schema)
-        try encode(avroValue, serializer: encoder)
+        encode(avroValue, serializer: encoder)
         return encoder.data
     }
 
@@ -34,7 +35,7 @@ open class GenericAvroEncoder: AvroEncoder {
         return try encode(value, as: value.schema)
     }
 
-    private func encode(_ value: AvroValue, serializer: AvroSerializer) throws {
+    private func encode(_ value: AvroValue, serializer: AvroSerializer) {
         switch value {
         case .avroNull:
             serializer.encodeNull()
@@ -69,7 +70,7 @@ open class GenericAvroEncoder: AvroEncoder {
                 } else {
                     serializer.encodeSeparator()
                 }
-                try encode(value as! AvroValue, serializer: serializer)
+                encode(value as! AvroValue, serializer: serializer)
             }
             serializer.encodeArrayEnd()
 
@@ -83,11 +84,15 @@ open class GenericAvroEncoder: AvroEncoder {
                     serializer.encodeSeparator()
                 }
                 serializer.encodePropertyName(key)
-                try encode(value as! AvroValue, serializer: serializer)
+                encode(value as! AvroValue, serializer: serializer)
             }
             serializer.encodeMapEnd()
 
-        case .avroRecord(.avroRecord(_, let fieldSchemas), let pairs):
+        case .avroRecord(let schema, let pairs):
+            guard case .avroRecord(_, let fieldSchemas) = schema else {
+                assertionFailure("Avro record should have a record schema")
+                return
+            }
             serializer.encodeRecordStart()
             var first = true
             for field in fieldSchemas {
@@ -97,22 +102,19 @@ open class GenericAvroEncoder: AvroEncoder {
                     serializer.encodeSeparator()
                 }
                 serializer.encodeFieldName(field.name)
-                try encode(pairs[field.name] as! AvroValue, serializer: serializer)
+                encode(pairs[field.name] as! AvroValue, serializer: serializer)
             }
             serializer.encodeRecordEnd()
-
-        case .avroRecord(_, _):
-            throw AvroCodingError.schemaMismatch
 
         case .avroEnum(_, let index, let value):
             serializer.encodeEnum(index: index, symbol: value)
 
-        case .avroUnion(_, _, AvroValue.avroNull):
-            serializer.encodeNull()
+        case .avroUnion(_, let index, AvroValue.avroNull):
+            serializer.encodeUnionNull(index: index)
 
         case .avroUnion(let subschemas, let index, let value):
             serializer.encodeUnionStart(index: index, typeName: subschemas[index].typeName)
-            try encode(value as! AvroValue, serializer: serializer)
+            encode(value as! AvroValue, serializer: serializer)
             serializer.encodeUnionEnd()
 
         case .avroFixed(_, let fixedBytes):
@@ -121,6 +123,7 @@ open class GenericAvroEncoder: AvroEncoder {
     }
 }
 
+/// Serializer for a given encoding.
 public protocol AvroSerializer {
     var data: Data { get }
 
@@ -147,6 +150,8 @@ public protocol AvroSerializer {
     func encodeFieldName(_ value: String)
 
     func encodeArrayEnd()
+
+    func encodeUnionNull(index: Int)
 
     func encodeUnionStart(index: Int, typeName: String)
 

@@ -9,6 +9,10 @@
 import Foundation
 
 open class BinaryAvroSerializer: AvroSerializer {
+    public func encodeUnionNull(index: Int) {
+        encodeLong(Int64(index))
+    }
+
     public var data: Data
 
     public init() {

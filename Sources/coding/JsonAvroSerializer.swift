@@ -9,6 +9,10 @@
 import Foundation
 
 open class JsonAvroSerializer: AvroSerializer {
+    public func encodeUnionNull(index: Int) {
+        encodeNull()
+    }
+
     var string: String
     public var data: Data {
         return string.data(using: .utf8)!

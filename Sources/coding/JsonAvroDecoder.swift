@@ -8,6 +8,7 @@
 
 import Foundation
 
+/// Decoder for the JSON Avro encoding.
 open class JsonAvroDecoder : AvroDecoder {
     public init() {
     }
@@ -26,8 +27,10 @@ open class JsonAvroDecoder : AvroDecoder {
         switch any {
         case let result as NSNull:
             return result
+
         case let result as Int:
             return result
+
         case let result as String:
             switch schema {
             case .avroBytes, .avroFixed(_, _):
@@ -35,27 +38,19 @@ open class JsonAvroDecoder : AvroDecoder {
             default:
                 return result
             }
+
         case let result as Double:
             return result
+
         case let result as [Any]:
-            var avroValues: [AvroValueConvertible] = []
             guard case .avroArray(let itemSchema) = schema else { throw AvroCodingError.schemaMismatch }
-            avroValues.reserveCapacity(result.count)
-            for value in result {
-                let decodedResult = try decode(any: value, as: itemSchema)
-                avroValues.append(decodedResult)
-            }
-            return avroValues
+            return try result.map { try decode(any: $0, as: itemSchema) }
+
         case let result as [String: Any]:
             switch schema {
             case .avroMap(let valueSchema):
-                var avroValues: [String: AvroValueConvertible] = [:]
-                avroValues.reserveCapacity(result.count)
-                for (key, value) in result {
-                    let decodedResult = try decode(any: value, as: valueSchema)
-                    avroValues[key] = decodedResult
-                }
-                return avroValues
+                return try result.mapValues { try decode(any: $0, as: valueSchema) }
+
             case .avroUnion(let subSchemas):
                 guard result.count == 1,
                     let (key, value) = result.first,
@@ -64,17 +59,17 @@ open class JsonAvroDecoder : AvroDecoder {
                 }
                 let newValue = try decode(any: value, as: subSchemas[index])
                 return AvroValue.avroUnion(schemaOptions: subSchemas, index: index, newValue)
+
             case .avroRecord(_, let fieldSchemas):
-                var avroValues: [String: AvroValueConvertible] = [:]
-                avroValues.reserveCapacity(result.count)
-                for field in fieldSchemas {
-                    guard let value = result[field.name] else { continue }
-                    avroValues[field.name] = try decode(any: value, as: field.schema)
-                }
-                return avroValues
+                let fields: [(String, AvroValueConvertible)] = try fieldSchemas
+                    .filter { result.keys.contains($0.name) }
+                    .map { field in (field.name, try decode(any: result[field.name]!, as: field.schema)) }
+                return Dictionary(uniqueKeysWithValues: fields)
+
             default:
                 throw AvroCodingError.schemaMismatch
             }
+
         default:
             throw AvroCodingError.schemaMismatch
         }

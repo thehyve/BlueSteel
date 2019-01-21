@@ -32,7 +32,7 @@ extension Schema {
         public var namedTypes: [String: Schema]
 
         public init() {
-            namedTypes = [:]
+            self.init(existingTypes: [:])
         }
 
         public init(existingTypes: [String: Schema]) {
@@ -45,7 +45,7 @@ extension Schema {
                 throw SchemaCodingError.notAnObject
             }
 
-            return try parse(jsonObject, typeKey:"type", namespace: nil)
+            return try parse(jsonObject, typeKey:"type", context: AvroCodingContext())
         }
 
         public mutating func parse(_ json: String) throws -> Schema {
@@ -56,15 +56,12 @@ extension Schema {
             return try parse(schemaData)
         }
 
-        mutating func parse(_ json: [String: Any], typeKey key: String, namespace ns: String?) throws -> Schema {
-            var schemaNamespace: String?
-            if let jsonNamespace = json["namespace"] as? String {
-                schemaNamespace = jsonNamespace
-            } else {
-                schemaNamespace = ns
-            }
+        mutating func parse(_ json: [String: Any], typeKey key: String, context: AvroCodingContext) throws -> Schema {
+            var context = context
+            context.updateNamespace(jsonObject: json)
 
-            if let typeString = json[key] as? String {
+            switch json[key] {
+            case let typeString as String:
                 let avroType = AvroType(rawValue: typeString)
 
                 if let avroType = avroType {
@@ -87,102 +84,99 @@ extension Schema {
                         return .avroBytes
 
                     case .aMap :
-                        let schema = try parse(json, typeKey: "values", namespace: schemaNamespace)
+                        let schema = try parse(json, typeKey: "values", context: context.nestedIn(type: "map"))
                         return .avroMap(values: schema)
 
                     case .aArray :
-                        let schema = try parse(json, typeKey: "items", namespace: schemaNamespace)
+                        let schema = try parse(json, typeKey: "items", context: context.nestedIn(type: "array"))
                         return .avroArray(items: schema)
 
                     case .aRecord :
+                        context = context.nestedIn(type: "record")
                         // Records must be named
-                        guard let recordName = json["name"] as? String else {
-                            throw SchemaCodingError.missingField("record name")
-                        }
-                        let fullRecordName = Schema.assembleFullName(schemaNamespace, name: recordName)
+                        let recordName = try Parser.getField(name: "name", from: json, context: context) as String
+                        let fullRecordName = context.fullName(for: recordName)
+                        context.replaceLast(type: fullRecordName)
 
-                        guard let fields = json["fields"] as? [[String: Any]] else {
-                            throw SchemaCodingError.missingField("record fields")
-                        }
+                        let fields = try Parser.getField(name: "fields", from: json, context: context) as [[String: Any]]
                         let recordFields: [Field] = try fields.map { field in
-                            guard let fieldName = field["name"] as? String else {
-                                throw SchemaCodingError.missingField("field name")
-                            }
-                            let schema = try parse(field, typeKey: "type", namespace: schemaNamespace)
+                            let fieldName = try Parser.getField(name: "name", from: field, context: context) as String
+                            let schema = try parse(field, typeKey: "type", context: context.nestedIn(type: fullRecordName, fieldName))
                             var recordField = Field(name: fieldName, schema: schema)
                             if let fieldDefaultValue = field["default"] {
                                 let decoder = JsonAvroDecoder()
                                 recordField.defaultValue = try? decoder.decode(any: fieldDefaultValue, as: schema)
                             }
-
                             return recordField
                         }
-                        let result = Schema.avroRecord(name: fullRecordName, fields: recordFields)
-                        namedTypes[fullRecordName] = result
-                        return result
+                        return namedType(name: fullRecordName, schema: .avroRecord(name: fullRecordName, fields: recordFields))
 
                     case .aEnum :
-                        guard let enumName = json["name"] as? String else {
-                            throw SchemaCodingError.missingField("enum name")
-                        }
-                        guard let symbols = json["symbols"] as? [Any] else {
-                            throw SchemaCodingError.missingField("enum symbols")
-                        }
-                        var symbolStrings: [String] = []
-                        for sym in symbols {
-                            guard let symbol = sym as? String else {
-                                throw SchemaCodingError.typeMismatch
-                            }
-                            symbolStrings.append(symbol)
-                        }
+                        context = context.nestedIn(type: "enum")
+                        let enumName = try Parser.getField(name: "name", from: json, context: context) as String
+                        let fullEnumName = context.fullName(for: enumName)
+                        context.replaceLast(type: fullEnumName)
 
-                        let fullEnumName = Schema.assembleFullName(schemaNamespace, name: enumName)
+                        let symbols = try Parser.getField(name: "symbols", from: json, context: context) as [String]
 
-                        let result = Schema.avroEnum(name: fullEnumName, symbols: symbolStrings)
-                        namedTypes[fullEnumName] = result
-                        return result
+                        return namedType(name: fullEnumName, schema: .avroEnum(name: fullEnumName, symbols: symbols))
 
                     case .aFixed:
-                        guard let fixedName = json["name"] as? String else {
-                            throw SchemaCodingError.missingField("fixed name")
-                        }
-                        guard let size = json["size"] as? Int else {
-                            throw SchemaCodingError.missingField("fixed size")
-                        }
-                        let fullFixedName = Schema.assembleFullName(schemaNamespace, name: fixedName)
-                        let result = Schema.avroFixed(name: fullFixedName, size: size)
-                        namedTypes[fullFixedName] = result
-                        return result
+                        context = context.nestedIn(type: "fixed")
+                        let fixedName = try Parser.getField(name: "name", from: json, context: context) as String
+                        let fullFixedName = context.fullName(for: fixedName)
+                        context.replaceLast(type: fullFixedName)
+                        let size = try Parser.getField(name: "size", from: json, context: context) as Int
+
+                        return namedType(name: fullFixedName, schema: .avroFixed(name: fullFixedName, size: size))
                     }
                 } else {
                     // Schema type is invalid
-                    let fullTypeName = Schema.assembleFullName(schemaNamespace, name: typeString)
+                    let fullTypeName = context.fullName(for: typeString)
 
                     guard let cachedSchema = namedTypes[fullTypeName] else {
-                        throw SchemaCodingError.unknownType(fullTypeName)
+                        throw SchemaCodingError.unknownType(fullTypeName, context)
                     }
                     return cachedSchema
                 }
-            }
-            else if let dict = json[key] as? [String: Any] {
-                return try parse(dict, typeKey: "type", namespace: schemaNamespace)
-            }
-            else if let unionSchema = json[key] as? [Any] {
+
+            case let dict as [String: Any]:
+                return try parse(dict, typeKey: "type", context: context)
+
+            case let unionSchema as [Any]:
                 // Union
-                let schemas: [Schema] = try unionSchema.map { def in
-                    switch def {
-                    case let value as String:
-                        return try parse(["type": value], typeKey: "type", namespace: schemaNamespace)
-                    case let value as [String: Any]:
-                        return try parse(value, typeKey: "type", namespace: schemaNamespace)
-                    default:
-                        throw SchemaCodingError.typeMismatch
+                let schemas: [Schema] = try unionSchema.enumerated()
+                    .map { subSchema in
+                        switch subSchema.element {
+                        case let value as String:
+                            return try parse(["type": value], typeKey: "type", context: context.nestedIn(type: "union[\(subSchema.offset)]"))
+                        case let value as [String: Any]:
+                            return try parse(value, typeKey: "type", context: context.nestedIn(type: "union[\(subSchema.offset)]"))
+                        default:
+                            throw SchemaCodingError.typeMismatch(context.nestedIn(type: "union[\(subSchema.offset)]"))
+                        }
                     }
-                }
                 return .avroUnion(options: schemas)
-            } else {
-                throw SchemaCodingError.typeMismatch
+
+            default:
+                throw SchemaCodingError.typeMismatch(context.nestedIn(type: "unknown"))
             }
         }
+
+        private mutating func namedType(name: String, schema: Schema) -> Schema {
+            namedTypes[name] = schema
+            return schema
+        }
+
+        private static func getField<T>(name field: String, from dict: [String: Any], context: AvroCodingContext) throws -> T {
+            guard let value = dict[field] else {
+                throw SchemaCodingError.missingField(field, context)
+            }
+            guard let typedValue = value as? T else {
+                throw SchemaCodingError.typeMismatch(context)
+            }
+            return typedValue
+        }
+
     }
 }

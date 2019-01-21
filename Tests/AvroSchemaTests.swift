@@ -7,7 +7,7 @@
 //
 
 import XCTest
-import BlueSteel
+@testable import BlueSteel
 
 class AvroSchemaTests: XCTestCase {
 
@@ -307,16 +307,22 @@ class AvroSchemaTests: XCTestCase {
                                 {"type":"enum","name":"DeviceOrientation","doc":"Enum of valid device orientations.","symbols":["Landscape","Portrait"]}}
                         ]}},
                     {"name":"storeKey","type":{"type":"enum","name":"StoreKey","doc":"Enum of valid store keys.","symbols":
-                        ["Children","City","Gifts","Home","Men","MyGilt","Women","NoStore"]}}
+                        ["Children","City","Gifts","Home","Men","MyGilt","Women","NoStore"]}},
+                    {"name": "recursivePage", "type": "PageViewedEvent"}
                 ]
             }
             """)
 
-        if let canonicalString = schema.jsonString() {
-            Swift.print(canonicalString)
-        } else {
+        guard let canonicalString = schema.jsonString() else {
             XCTFail()
+            return
         }
+        guard let canonicalSchema = try? Schema(json: canonicalString) else {
+            XCTFail()
+            return
+        }
+        Swift.print(canonicalSchema)
+        XCTAssertEqual(schema, canonicalSchema)
     }
 
     func testSchemaParsing() {
@@ -327,7 +333,7 @@ class AvroSchemaTests: XCTestCase {
             Schema.Field(name: "d", schema: .avroMap(values: .avroBytes)),
             Schema.Field(name: "f", schema: .avroString),
             Schema.Field(name: "g", schema: .avroUnion(options: [.avroString, .avroInt])),
-            Schema.Field(name: "h", schema: .avroBytes, defaultValue: Data(bytes: [0xff]).toAvro()),
+            Schema.Field(name: "h", schema: .avroBytes, defaultValue: .avroBytes(Data(bytes: [0xff]))),
             Schema.Field(name: "i", schema: .avroFloat)
             ])
 
@@ -369,6 +375,74 @@ class AvroSchemaTests: XCTestCase {
         XCTAssertEqual(schema, jsonSchema1)
         XCTAssertEqual(schema, jsonSchema2)
         XCTAssertEqual(schema.jsonString(), jsonString2.replacingOccurrences(of: "\\s", with: "", options: .regularExpression))
-        XCTAssertEqual(schema.description, "A<record>([a: int, b: B<enum>([\"opt1\", \"opt2\"]), c: long (default: 1L), d: map<bytes>, f: string, g: [string, int], h: bytes (default: 1 bytes), i: float])")
+        XCTAssertEqual(schema.description, "A<record>([a: int, b: B<enum>([opt1, opt2]), c: long (default: 1L), d: map<bytes>, f: string, g: [string, int], h: bytes (default: 1 bytes), i: float])")
+    }
+
+    func testValidation() {
+        do {
+            try Schema.avroEnum(name: "", symbols: ["a"]).validate()
+            XCTFail()
+        } catch Schema.ValidationError.invalidName("", _) {
+            // good
+        } catch {
+            XCTFail()
+        }
+        do {
+            try Schema.avroEnum(name: "a", symbols: [""]).validate()
+            XCTFail()
+        } catch Schema.ValidationError.invalidName("", _) {
+            // good
+        } catch {
+            XCTFail()
+        }
+        do {
+            try Schema.avroEnum(name: "a", symbols: []).validate()
+            XCTFail()
+        } catch Schema.ValidationError.empty(_) {
+            // good
+        } catch {
+            XCTFail()
+        }
+        do {
+            try Schema.avroUnknown.validate()
+            XCTFail()
+        } catch Schema.ValidationError.invalidType(_) {
+            // good
+        } catch {
+            XCTFail()
+        }
+        do {
+            try Schema.avroUnion(options: []).validate()
+            XCTFail()
+        } catch Schema.ValidationError.empty(_) {
+            // good
+        } catch {
+            XCTFail()
+        }
+        do {
+            try Schema.avroUnion(options: [.avroUnknown]).validate()
+            XCTFail()
+        } catch Schema.ValidationError.invalidType(_) {
+            // good
+        } catch {
+            XCTFail()
+        }
+        do {
+            try Schema.avroFixed(name: "a", size: -123).validate()
+            XCTFail()
+        } catch Schema.ValidationError.empty(_) {
+            // good
+        } catch {
+            XCTFail()
+        }
+
+        do {
+            try Schema.avroEnum(name: "T", symbols: ["a", "b", "b", "c", "a", "d", "a"]).validate()
+            XCTFail()
+        } catch Schema.ValidationError.notUnique(["a", "b"], _) {
+            // good
+        } catch {
+            XCTFail()
+        }
     }
 }
