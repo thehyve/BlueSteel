@@ -46,8 +46,16 @@ extension AvroValue: CustomStringConvertible {
             let typeNames = schemaOptions.map { $0.typeName }.joined(separator: ", ")
             return "union([\(typeNames)][\(index)]: \(value))"
 
-        case .avroRecord(.avroRecord(let name, _), let values):
-            let fields = values.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
+        case .avroRecord(.avroRecord(let name, let fieldSchemas), let values):
+            let fields = fieldSchemas.map { field in
+                    if let value = values[field.name] {
+                        return "\(field.name): \(value)"
+                    } else if let defaultValue = field.defaultValue {
+                        return "\(field.name): \(defaultValue)"
+                    } else {
+                        return "\(field.name): ???"
+                    }
+                }.joined(separator: ", ")
             return "\(name)<record>([\(fields)]))"
 
         case .avroEnum(.avroEnum(let name, let symbols), let index, let value):
