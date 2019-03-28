@@ -106,7 +106,7 @@ class AvroDecoderTests: XCTestCase {
         let schema = try! Schema(json: "{ \"type\" : \"double\" }")
 
         let expected: Double = 3.14
-        if let avroValue = try? AvroValue(data: avroBytes, as: schema).double {
+        if let avroValue = ((try? AvroValue(data: avroBytes, as: schema).double) as Double??) {
             XCTAssertEqual(avroValue, expected, "Byte arrays don't match.")
         } else {
             XCTAssert(false, "Failed. Nil value")

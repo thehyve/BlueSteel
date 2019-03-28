@@ -162,7 +162,7 @@ fileprivate class BinaryAvroDeserializer {
         guard offset + 8 <= data.count else { return nil }
 
         defer { offset += 8 }
-        let bitValue: UInt64 = data.advanced(by: offset).withUnsafeBytes { $0.pointee }
+        let bitValue: UInt64 = data.advanced(by: offset).withUnsafeBytes { $0.load(as: UInt64.self) }
         var value = UInt64(littleEndian: bitValue)
 
         return withUnsafePointer(to: &value) { ptr in
@@ -174,7 +174,7 @@ fileprivate class BinaryAvroDeserializer {
         guard offset + 4 <= data.count else { return nil }
 
         defer { offset += 4 }
-        let bitValue: UInt32 = data.advanced(by: offset).withUnsafeBytes { $0.pointee }
+        let bitValue: UInt32 = data.advanced(by: offset).withUnsafeBytes { $0.load(as: UInt32.self) }
         var value = UInt32(littleEndian: bitValue)
 
         return withUnsafePointer(to: &value, { (ptr: UnsafePointer<UInt32>) -> Float in

@@ -34,7 +34,7 @@ open class JsonAvroDecoder : AvroDecoder {
         case let result as String:
             switch schema {
             case .avroBytes, .avroFixed(_, _):
-                return Data(bytes: result.unicodeScalars.map { UInt8($0.value & 0xff) })
+                return Data(result.unicodeScalars.map { UInt8($0.value & 0xff) })
             default:
                 return result
             }
