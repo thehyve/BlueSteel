@@ -61,10 +61,12 @@ open class JsonAvroDecoder : AvroDecoder {
                 return AvroValue.avroUnion(schemaOptions: subSchemas, index: index, newValue)
 
             case .avroRecord(_, let fieldSchemas):
-                let fields: [(String, AvroValueConvertible)] = try fieldSchemas
+                let fields = try fieldSchemas
                     .filter { result.keys.contains($0.name) }
-                    .map { field in (field.name, try decode(any: result[field.name]!, as: field.schema)) }
-                return Dictionary(uniqueKeysWithValues: fields)
+                    .reduce(into: [:]) { (res, field) in
+                        res[field.name] = try decode(any: result[field.name]!, as: field.schema)
+                    }
+                return fields
 
             default:
                 throw AvroCodingError.schemaMismatch
