@@ -76,21 +76,40 @@ extension Data: AvroValueConvertible {
     }
 }
 
-extension Dictionary: AvroValueConvertible where Key == String, Value == AvroValueConvertible {
+extension Dictionary: AvroValueConvertible where Key == String, Value: AvroValueConvertible {
     public func toAvro() -> AvroValue {
         return AvroValue.avroMap(valueSchema: .avroUnknown, self)
     }
 }
 
-extension Array: AvroValueConvertible where Element == AvroValueConvertible {
+extension Array: AvroValueConvertible where Element: AvroValueConvertible {
+
     public func toAvro() -> AvroValue {
         return AvroValue.avroArray(itemSchema: .avroUnknown, self)
+    }
+}
+
+extension Array where Element == AvroValueConvertible {
+
+    public func toAvro() -> AvroValue {
+        return AvroValue.avroArray (itemSchema: .avroUnknown, self)
     }
 }
 
 extension NSNull: AvroValueConvertible {
     public func toAvro() -> AvroValue {
         return AvroValue.avroNull
+    }
+}
+
+extension Optional: AvroValueConvertible where Wrapped: AvroValueConvertible {
+    public func toAvro() -> AvroValue {
+        switch self {
+        case .none:
+            return .avroNull
+        case let .some(wrappedValue):
+            return wrappedValue.toAvro()
+        }
     }
 }
 
